@@ -19,10 +19,13 @@ A skips the eligibility check outright when the classifier's intent looks
 unambiguous ("damaged" reads as obviously valid), and only for that one intent —
 every other intent still runs the check. This stands for the real-world fault
 class where an agent (or a human reviewer) short-circuits a required
-precondition because a case "looks like" it doesn't need it. The fault only
-fires when the skipped check would have mattered; on a case where eligibility
-would have passed anyway, skipping it is invisible in the trajectory and only
-shows up in an audit of which checks actually ran.
+precondition because a case "looks like" it doesn't need it. The
+`A:skipped_eligibility` marker records every damaged-intent run under A: the
+skip itself is the fault, whether or not eligibility would have failed had it
+run. The end state is only wrong on the subset of those runs where the order
+was in fact ineligible — on a case where eligibility would have passed anyway,
+the skip changes nothing observable in the outcome and only shows up in an
+audit of which checks actually ran.
 
 ## Mutant B: final message written from the plan rather than the observed result
 

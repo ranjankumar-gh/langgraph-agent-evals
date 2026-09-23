@@ -90,7 +90,10 @@ def build_graph(variant: str, llm: LLM, tools: Tools, *, seed: int, fired: list[
     def check_eligibility(state: RefundState) -> dict:
         if variant == "C":
             redundant_lookup(state)
-        return {"eligibility": tools.check_eligibility(state["order"], state["prior_refunds"])}
+        try:
+            return {"eligibility": tools.check_eligibility(state["order"], state["prior_refunds"])}
+        except ToolError as exc:
+            return {"error": str(exc)}
 
     def compute_refund(state: RefundState) -> dict:
         if variant == "C":
@@ -161,6 +164,8 @@ def build_graph(variant: str, llm: LLM, tools: Tools, *, seed: int, fired: list[
         return "check_eligibility"
 
     def after_eligibility(state: RefundState) -> str:
+        if state.get("error"):
+            return "respond"
         return "compute_refund" if state["eligibility"]["eligible"] else "respond"
 
     def after_compute(state: RefundState) -> str:

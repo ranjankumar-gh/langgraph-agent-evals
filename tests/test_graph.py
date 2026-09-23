@@ -150,3 +150,19 @@ def test_lookup_failure_routes_to_respond():
     assert calls(tools) == ["lookup_order"]
     assert refunds(conn) == []
     assert "Error: lookup_order failed" in llm.prompts[-1][1]
+
+
+def test_history_failure_routes_to_respond():
+    graph, tools, conn, _, llm = make("baseline", faults={"get_refund_history": "error"})
+    run(graph)
+    assert calls(tools) == ["lookup_order", "get_refund_history"]
+    assert refunds(conn) == []
+    assert "Error: get_refund_history failed" in llm.prompts[-1][1]
+
+
+def test_eligibility_failure_routes_to_respond():
+    graph, tools, conn, _, llm = make("baseline", faults={"check_eligibility": "error"})
+    run(graph)
+    assert calls(tools) == ["lookup_order", "get_refund_history", "check_eligibility"]
+    assert refunds(conn) == []
+    assert "Error: check_eligibility failed" in llm.prompts[-1][1]
