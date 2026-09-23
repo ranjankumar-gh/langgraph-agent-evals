@@ -25,7 +25,12 @@ class RefundDecision(BaseModel):
 
 
 CLASSIFY_SYSTEM = """You triage customer messages for a refund desk.
-Classify the reason for the request and extract the order id exactly as written (format ORD-<digits>).
+Classify the reason for the request into exactly one intent:
+- damaged: the item arrived damaged, broken, defective, not working, or is the wrong item.
+- missing_part: the item arrived without one of its parts or accessories.
+- changed_mind: the customer no longer wants or needs the item.
+- other: anything else, including requests that do not say what is wrong.
+Extract the order id exactly as written (format ORD-<digits>).
 If the customer did not state an order id, return null for order_id. Never guess an order id."""
 
 COMPUTE_SYSTEM = f"""You decide which refund type applies to an order that has already passed the eligibility check.
