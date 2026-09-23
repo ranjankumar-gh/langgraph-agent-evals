@@ -14,12 +14,26 @@ class _FakeChat:
         return Classification(intent="damaged", order_id="ORD-1001")
 
 
+class _RecordingChat:
+    """Stands in for ChatOllama on the text() path: returns a canned .content."""
+
+    def __init__(self, text_value: str = "a clean reply") -> None:
+        self._text_value = text_value
+
+    def invoke(self, messages):
+        class _Msg:
+            def __init__(self, content: str) -> None:
+                self.content = content
+
+        return _Msg(self._text_value)
+
+
 def test_structured_calls_are_cached_per_seed(tmp_path, monkeypatch):
     monkeypatch.setattr(
         llm_mod, "ollama_model_info", lambda model, base_url="": {"digest": "abc", "capabilities": ["completion"]}
     )
     llm = llm_mod.OllamaLLM("qwen3:4b", cache_path=tmp_path / "cache.sqlite")
-    monkeypatch.setattr(llm, "_chat", lambda seed, num_predict=None: _FakeChat())
+    monkeypatch.setattr(llm, "_chat", lambda seed, *, reasoning, num_predict: _FakeChat())
     _FakeChat.calls = 0
 
     first = llm.structured("sys", "user", Classification, seed=0)
@@ -35,8 +49,106 @@ def test_reasoning_disabled_only_for_thinking_models(tmp_path, monkeypatch):
     monkeypatch.setattr(
         llm_mod, "ollama_model_info", lambda model, base_url="": {"digest": "d", "capabilities": ["completion", "thinking"]}
     )
-    assert llm_mod.OllamaLLM("qwen3:4b", cache_path=tmp_path / "a.sqlite")._reasoning is False
+    assert llm_mod.OllamaLLM("qwen3:4b", cache_path=tmp_path / "a.sqlite")._thinking_capable is True
     monkeypatch.setattr(
         llm_mod, "ollama_model_info", lambda model, base_url="": {"digest": "d", "capabilities": ["completion"]}
     )
-    assert llm_mod.OllamaLLM("gemma3:4b", cache_path=tmp_path / "b.sqlite")._reasoning is None
+    assert llm_mod.OllamaLLM("gemma3:4b", cache_path=tmp_path / "b.sqlite")._thinking_capable is False
+
+
+def test_text_lets_thinking_models_reason_with_room_for_it(tmp_path, monkeypatch):
+    """text() on a thinking-capable model must ask ChatOllama for reasoning=True (so the clean
+    reply lands in .content, not the chain-of-thought) and a num_predict big enough for both the
+    reasoning and the reply."""
+    monkeypatch.setattr(
+        llm_mod, "ollama_model_info", lambda model, base_url="": {"digest": "d", "capabilities": ["completion", "thinking"]}
+    )
+    llm = llm_mod.OllamaLLM("qwen3:4b", num_predict=512, cache_path=tmp_path / "cache.sqlite")
+    seen = {}
+
+    def fake_chat(seed, *, reasoning, num_predict):
+        seen["reasoning"] = reasoning
+        seen["num_predict"] = num_predict
+        return _RecordingChat("a clean reply mentioning 149.00")
+
+    monkeypatch.setattr(llm, "_chat", fake_chat)
+
+    result = llm.text("sys", "user", seed=0)
+
+    assert result == "a clean reply mentioning 149.00"
+    assert seen["reasoning"] is True
+    assert seen["num_predict"] >= 2048
+
+
+def test_structured_still_suppresses_reasoning_on_thinking_models(tmp_path, monkeypatch):
+    """structured() must keep reasoning=False on a thinking model, and must not inflate
+    num_predict — only text() gets the larger budget."""
+    monkeypatch.setattr(
+        llm_mod, "ollama_model_info", lambda model, base_url="": {"digest": "d", "capabilities": ["completion", "thinking"]}
+    )
+    llm = llm_mod.OllamaLLM("qwen3:4b", num_predict=512, cache_path=tmp_path / "cache.sqlite")
+    seen = {}
+
+    def fake_chat(seed, *, reasoning, num_predict):
+        seen["reasoning"] = reasoning
+        seen["num_predict"] = num_predict
+        return _FakeChat()
+
+    monkeypatch.setattr(llm, "_chat", fake_chat)
+
+    llm.structured("sys", "user", Classification, seed=0)
+
+    assert seen["reasoning"] is False
+    assert seen["num_predict"] == 512
+
+
+def test_non_thinking_model_gets_no_reasoning_flag_on_either_path(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        llm_mod, "ollama_model_info", lambda model, base_url="": {"digest": "d", "capabilities": ["completion"]}
+    )
+    llm = llm_mod.OllamaLLM("gemma3:4b", num_predict=512, cache_path=tmp_path / "cache.sqlite")
+    seen = {}
+
+    def fake_chat(seed, *, reasoning, num_predict):
+        seen.setdefault("calls", []).append((reasoning, num_predict))
+        return _RecordingChat("hi")
+
+    monkeypatch.setattr(llm, "_chat", fake_chat)
+    llm.text("sys", "user", seed=0)
+
+    monkeypatch.setattr(llm, "_chat", lambda seed, *, reasoning, num_predict: (
+        seen.setdefault("calls", []).append((reasoning, num_predict)) or _FakeChat()
+    ))
+    llm.structured("sys", "user", Classification, seed=0)
+
+    assert seen["calls"] == [(None, 512), (None, 512)]
+
+
+def test_cache_key_differs_between_old_and_new_reasoning_flags(tmp_path, monkeypatch):
+    """A cache entry recorded under the old reasoning=False/num_predict=512 behaviour for
+    text() must never be replayed now that text() uses reasoning=True/num_predict>=2048."""
+    monkeypatch.setattr(
+        llm_mod, "ollama_model_info", lambda model, base_url="": {"digest": "d", "capabilities": ["completion", "thinking"]}
+    )
+    llm = llm_mod.OllamaLLM("qwen3:4b", cache_path=tmp_path / "cache.sqlite")
+
+    old_key = llm._key("text", "sys", "user", None, 0, reasoning=False, num_predict=512)
+    new_key = llm._key("text", "sys", "user", None, 0, reasoning=True, num_predict=2048)
+
+    assert old_key != new_key
+
+
+def test_cache_key_does_not_collide_text_and_structured(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        llm_mod, "ollama_model_info", lambda model, base_url="": {"digest": "d", "capabilities": ["completion", "thinking"]}
+    )
+    llm = llm_mod.OllamaLLM("qwen3:4b", cache_path=tmp_path / "cache.sqlite")
+
+    monkeypatch.setattr(llm, "_chat", lambda seed, *, reasoning, num_predict: _FakeChat())
+    llm.structured("same", "prompt", Classification, seed=0)
+
+    monkeypatch.setattr(llm, "_chat", lambda seed, *, reasoning, num_predict: _RecordingChat("clean reply"))
+    llm.text("same", "prompt", seed=0)
+
+    rows = llm._db.execute("SELECT COUNT(*) FROM cache").fetchone()[0]
+    assert rows == 2

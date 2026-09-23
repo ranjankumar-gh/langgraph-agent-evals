@@ -56,8 +56,12 @@ class OllamaLLM:
         info = ollama_model_info(model, base_url)
         self.name = model
         self.digest = info["digest"]
-        # qwen3 thinks by default; turn it off. Models without the capability get no flag at all.
-        self._reasoning = False if "thinking" in info["capabilities"] else None
+        # qwen3 thinks by default. On text() we let it think (reasoning=True) so the clean reply
+        # lands in .content and the chain-of-thought goes to additional_kwargs instead of being
+        # returned; on structured() we still suppress it (reasoning=False) because the json_schema
+        # format already constrains the output and that path is smoke-tested. Models without the
+        # capability get no flag at all (reasoning=None) on either path.
+        self._thinking_capable = "thinking" in info["capabilities"]
         self.temperature = temperature
         self.num_predict = num_predict
         self.base_url = base_url
@@ -67,9 +71,33 @@ class OllamaLLM:
         self.calls = 0
         self.hits = 0
 
-    def _key(self, kind: str, system: str, user: str, extra: object, seed: int) -> str:
+    def _key(
+        self,
+        kind: str,
+        system: str,
+        user: str,
+        extra: object,
+        seed: int,
+        *,
+        reasoning: bool | None,
+        num_predict: int,
+    ) -> str:
+        # reasoning and num_predict are the EFFECTIVE values for this call (which differ between
+        # text() and structured(), and from the constructor default for thinking models' text()
+        # calls) so that a cache entry recorded under old behaviour is never replayed.
         blob = json.dumps(
-            [self.name, self.digest, self.temperature, self.num_predict, kind, system, user, extra, seed],
+            [
+                self.name,
+                self.digest,
+                self.temperature,
+                num_predict,
+                reasoning,
+                kind,
+                system,
+                user,
+                extra,
+                seed,
+            ],
             sort_keys=True,
         )
         return hashlib.sha256(blob.encode()).hexdigest()
@@ -85,7 +113,7 @@ class OllamaLLM:
         self._db.execute("INSERT OR REPLACE INTO cache VALUES (?, ?)", (key, value))
         self._db.commit()
 
-    def _chat(self, seed: int, num_predict: int | None = None):
+    def _chat(self, seed: int, *, reasoning: bool | None, num_predict: int):
         from langchain_ollama import ChatOllama
 
         return ChatOllama(
@@ -93,18 +121,22 @@ class OllamaLLM:
             base_url=self.base_url,
             temperature=self.temperature,
             seed=seed,
-            num_predict=num_predict or self.num_predict,
-            reasoning=self._reasoning,
+            num_predict=num_predict,
+            reasoning=reasoning,
         )
 
     def structured(self, system: str, user: str, schema: type[M], *, seed: int) -> M:
-        key = self._key("structured", system, user, schema.model_json_schema(), seed)
+        reasoning = False if self._thinking_capable else None
+        num_predict = self.num_predict
+        key = self._key(
+            "structured", system, user, schema.model_json_schema(), seed, reasoning=reasoning, num_predict=num_predict
+        )
         cached = self._lookup(key)
         if cached is not None:
             return schema.model_validate_json(cached)
         self.calls += 1
         result = (
-            self._chat(seed)
+            self._chat(seed, reasoning=reasoning, num_predict=num_predict)
             .with_structured_output(schema, method="json_schema")
             .invoke([("system", system), ("human", user)])
         )
@@ -112,11 +144,18 @@ class OllamaLLM:
         return result
 
     def text(self, system: str, user: str, *, seed: int) -> str:
-        key = self._key("text", system, user, None, seed)
+        reasoning = True if self._thinking_capable else None
+        # Thinking models need room for the reasoning trace AND the reply that follows it.
+        num_predict = max(self.num_predict, 2048) if self._thinking_capable else self.num_predict
+        key = self._key("text", system, user, None, seed, reasoning=reasoning, num_predict=num_predict)
         cached = self._lookup(key)
         if cached is not None:
             return json.loads(cached)
         self.calls += 1
-        content = str(self._chat(seed).invoke([("system", system), ("human", user)]).content)
+        content = str(
+            self._chat(seed, reasoning=reasoning, num_predict=num_predict)
+            .invoke([("system", system), ("human", user)])
+            .content
+        )
         self._store(key, json.dumps(content))
         return content
