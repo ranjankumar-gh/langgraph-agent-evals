@@ -97,6 +97,8 @@ def test_match_modes(observed, strict, unordered, subset, superset):
         ("Refund of 149.00 issued", 1499.0, False),
         ("Refund of 2149 issued", 149.0, False),
         ("Refund of 74.50 issued", 74.5, True),
+        ("Your refund is $1 899.00", 1899.0, True),
+        ("We'll process a refund of $149.00 shortly", 149.0, True),
     ],
 )
 def test_mentions_amount(text, amount, expected):
@@ -107,6 +109,11 @@ def test_string_check_must_not_mention():
     spec = AnswerSpec(reference="r", must_not_mention=["5000"])
     assert not string_check("your refund of 5000 is approved", spec).passed
     assert string_check("your refund of 120.00 is approved", spec).passed
+
+
+def test_string_check_must_not_mention_normalises_narrow_spaces():
+    spec = AnswerSpec(reference="r", must_not_mention=["1899"])
+    assert not string_check("your refund of $1 899.00 is approved", spec).passed
 
 
 def _case(**answer) -> Case:

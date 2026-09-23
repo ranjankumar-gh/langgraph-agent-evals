@@ -33,8 +33,25 @@ class AnswerResult:
     passed: bool
 
 
+# Narrow no-break space, no-break space and thin space: seen from cloud models around
+# numbers, e.g. "refund of $1,899.00" or "$1 899.00" (used as a thousands
+# separator, like the comma).
+_THIN_SPACES = "   "
+_THOUSANDS_SEP_RE = re.compile(rf"(?<=\d)[{_THIN_SPACES}](?=\d)")
+
+
+def _normalize_spaces(text: str) -> str:
+    # A thin/no-break space directly between two digits is a thousands separator, like the
+    # comma - drop it entirely so "1 899.00" reads as "1899.00".
+    text = _THOUSANDS_SEP_RE.sub("", text)
+    # Any other occurrence normalises to a regular space.
+    for ch in _THIN_SPACES:
+        text = text.replace(ch, " ")
+    return text
+
+
 def mentions_amount(text: str, amount: float) -> bool:
-    normalized = text.replace(",", "")
+    normalized = _normalize_spaces(text).replace(",", "")
     candidates = {f"{amount:.2f}"}
     if amount == int(amount):
         candidates.add(str(int(amount)))
@@ -45,8 +62,9 @@ def string_check(text: str, spec: AnswerSpec) -> CheckResult:
     problems: list[str] = []
     if spec.mention_amount is not None and not mentions_amount(text, spec.mention_amount):
         problems.append(f"amount {spec.mention_amount:.2f} not mentioned")
+    normalized_text = _normalize_spaces(text)
     for phrase in spec.must_not_mention:
-        if phrase in text:
+        if phrase in normalized_text:
             problems.append(f"mentions forbidden {phrase!r}")
     return CheckResult(not problems, "; ".join(problems) or "ok")
 

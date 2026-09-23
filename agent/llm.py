@@ -1,26 +1,78 @@
-"""LLM access for the agent and the judge: local Ollama only, behind a record/replay cache.
+"""LLM access for the agent and the judge, behind a record/replay cache.
 
-The cache key covers model digest, sampling options, prompts, schema and seed, so a
-re-run of an unchanged case replays instead of calling the model. Seeds are the trial
-index, which makes every variant see the same draw for the same (case, trial).
+Models are either installed locally or served from Ollama Cloud through the local Ollama
+daemon at base_url (no API key) - a model name ending "-cloud" marks it hosted, recorded
+as self.hosted.
+
+Ollama Cloud ignores the json_schema `format` constraint on structured output (a raw call
+with a schema still returns bare text), and the tool-calling alternative
+(with_structured_output(method="function_calling")) leaves the model failing to call the
+tool in 15-25% of gpt-oss judge calls and worse for other models, regardless of thinking
+mode. So hosted models get structured output a third way: the JSON schema is appended to
+the system prompt, the call is made with reasoning on (so the clean reply lands in
+.content and the chain-of-thought doesn't) and num_predict raised to leave room for both,
+and the reply is parsed by taking the first "{" to the last "}" in the content and
+validating that against the schema. Local models are unaffected - they keep the
+json_schema method with reasoning off, exactly as before.
+
+Ollama Cloud also returns transient `ResponseError` 5xx (Internal Server Error) fairly
+often. So hosted calls (both structured() and text()) get a bounded retry: up to 3
+attempts total, with a short backoff between attempts (self._sleep, patchable in tests so
+they don't actually sleep). A retry is taken on a 5xx ResponseError, a connection error
+(httpx.ConnectError / httpx.ReadTimeout / ConnectionError), and, for structured(), a
+failure to extract or validate the JSON reply (StructuredOutputError or a pydantic
+ValidationError) - any other exception is not retried. Only a successful call is cached;
+retries are counted on the public self.retries so callers can record them. After the last
+attempt, the last error is raised - for structured(), always as a StructuredOutputError
+that chains the underlying cause.
+
+The cache key covers model digest, sampling options, prompts, schema, seed and the method
+used (json_schema for local vs the hosted prompt-embedded-schema approach), so a change in
+behaviour - old vs new reasoning/num_predict, or the retired function_calling method -
+never replays a stale cache entry. Seeds are the trial index, which makes every variant
+see the same draw for the same (case, trial).
 """
 from __future__ import annotations
 
 import hashlib
 import json
+import re
 import sqlite3
+import time
 import urllib.request
 from pathlib import Path
 from typing import Protocol, TypeVar
 
-from pydantic import BaseModel
+import httpx
+from ollama import ResponseError
+from pydantic import BaseModel, ValidationError
 
 M = TypeVar("M", bound=BaseModel)
+
+# Backoff between hosted-call retry attempts: RETRY_DELAYS[0] before attempt 2,
+# RETRY_DELAYS[1] before attempt 3.
+RETRY_DELAYS = (2, 5)
+
+# Matches the first "{" to the last "}" in a hosted model's reply, so a JSON object
+# survives surrounding prose ("Sure! {...} hope that helps").
+_JSON_OBJECT_RE = re.compile(r"\{.*\}", re.DOTALL)
 
 
 class StructuredOutputError(RuntimeError):
     """Raised when structured() gets no parsed result back from the model (seen when a
-    hosted model never calls the structured-output tool)."""
+    hosted model's reply has no valid JSON object matching the schema, or - on the local
+    json_schema/tool-calling path - the tool is never called)."""
+
+
+def _retryable(exc: BaseException) -> bool:
+    """Whether a hosted-call failure is worth a bounded retry."""
+    if isinstance(exc, (StructuredOutputError, ValidationError)):
+        return True
+    if isinstance(exc, ResponseError):
+        return (exc.status_code or 0) >= 500
+    if isinstance(exc, (httpx.ConnectError, httpx.ReadTimeout, ConnectionError)):
+        return True
+    return False
 
 
 class LLM(Protocol):
@@ -61,14 +113,15 @@ class OllamaLLM:
         info = ollama_model_info(model, base_url)
         self.name = model
         # Ollama Cloud models (name ends "-cloud") ignore the json_schema format constraint on
-        # structured output, so structured() picks its with_structured_output method off this.
+        # structured output, so structured() picks its approach off this (see module docstring).
         self.hosted = model.endswith("-cloud")
         self.digest = info["digest"]
         # qwen3 thinks by default. On text() we let it think (reasoning=True) so the clean reply
         # lands in .content and the chain-of-thought goes to additional_kwargs instead of being
-        # returned; on structured() we still suppress it (reasoning=False) because the json_schema
-        # format already constrains the output and that path is smoke-tested. Models without the
-        # capability get no flag at all (reasoning=None) on either path.
+        # returned; on local structured() we still suppress it (reasoning=False) because the
+        # json_schema format already constrains the output and that path is smoke-tested. Hosted
+        # structured() always reasons (see module docstring). Models without the capability get
+        # no flag at all (reasoning=None) on either local path.
         self._thinking_capable = "thinking" in info["capabilities"]
         self.temperature = temperature
         self.num_predict = num_predict
@@ -78,6 +131,11 @@ class OllamaLLM:
         self._db.execute("CREATE TABLE IF NOT EXISTS cache (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
         self.calls = 0
         self.hits = 0
+        # Count of retry attempts taken across every hosted call this instance has made
+        # (0 on a run with no retries). scripts/run_part1.py records this in metadata.
+        self.retries = 0
+        # A patchable hook so tests can skip the real backoff.
+        self._sleep = time.sleep
 
     def _key(
         self,
@@ -137,12 +195,11 @@ class OllamaLLM:
         )
 
     def structured(self, system: str, user: str, schema: type[M], *, seed: int) -> M:
+        if self.hosted:
+            return self._structured_hosted(system, user, schema, seed)
         reasoning = False if self._thinking_capable else None
         num_predict = self.num_predict
-        # Ollama Cloud ignores the json_schema format constraint (a raw call with a schema
-        # still returns bare text), so hosted models get structured output via tool calling
-        # instead; local models keep json_schema, which is what's smoke-tested there.
-        method = "function_calling" if self.hosted else "json_schema"
+        method = "json_schema"
         key = self._key(
             "structured",
             system,
@@ -167,6 +224,56 @@ class OllamaLLM:
         self._store(key, result.model_dump_json())
         return result
 
+    def _structured_hosted(self, system: str, user: str, schema: type[M], seed: int) -> M:
+        reasoning = True
+        num_predict = max(self.num_predict, 2048)
+        method = "prompt_json"
+        schema_system = (
+            f"{system}\n\nRespond with only a JSON object that validates against this JSON "
+            f"schema, and nothing else:\n{json.dumps(schema.model_json_schema())}"
+        )
+        key = self._key(
+            "structured",
+            system,
+            user,
+            schema.model_json_schema(),
+            seed,
+            reasoning=reasoning,
+            num_predict=num_predict,
+            method=method,
+        )
+        cached = self._lookup(key)
+        if cached is not None:
+            return schema.model_validate_json(cached)
+
+        last_error: BaseException = StructuredOutputError(f"{self.name} structured() was never attempted")
+        for attempt in range(3):
+            if attempt > 0:
+                self.retries += 1
+                self._sleep(RETRY_DELAYS[attempt - 1])
+            self.calls += 1
+            try:
+                content = str(
+                    self._chat(seed, reasoning=reasoning, num_predict=num_predict)
+                    .invoke([("system", schema_system), ("human", user)])
+                    .content
+                )
+                match = _JSON_OBJECT_RE.search(content)
+                if match is None:
+                    raise StructuredOutputError(f"{self.name} reply had no JSON object: {content!r}")
+                result = schema.model_validate_json(match.group(0))
+            except Exception as exc:
+                last_error = exc
+                if attempt < 2 and _retryable(exc):
+                    continue
+                if isinstance(exc, StructuredOutputError):
+                    raise
+                raise StructuredOutputError(f"{self.name} structured() failed: {exc}") from exc
+            else:
+                self._store(key, result.model_dump_json())
+                return result
+        raise StructuredOutputError(f"{self.name} structured() failed: {last_error}") from last_error
+
     def text(self, system: str, user: str, *, seed: int) -> str:
         reasoning = True if self._thinking_capable else None
         # Thinking models need room for the reasoning trace AND the reply that follows it.
@@ -175,11 +282,34 @@ class OllamaLLM:
         cached = self._lookup(key)
         if cached is not None:
             return json.loads(cached)
-        self.calls += 1
-        content = str(
-            self._chat(seed, reasoning=reasoning, num_predict=num_predict)
-            .invoke([("system", system), ("human", user)])
-            .content
-        )
+        if self.hosted:
+            content = self._text_hosted(system, user, seed, reasoning=reasoning, num_predict=num_predict)
+        else:
+            self.calls += 1
+            content = str(
+                self._chat(seed, reasoning=reasoning, num_predict=num_predict)
+                .invoke([("system", system), ("human", user)])
+                .content
+            )
         self._store(key, json.dumps(content))
         return content
+
+    def _text_hosted(self, system: str, user: str, seed: int, *, reasoning: bool | None, num_predict: int) -> str:
+        last_error: BaseException = RuntimeError(f"{self.name} text() was never attempted")
+        for attempt in range(3):
+            if attempt > 0:
+                self.retries += 1
+                self._sleep(RETRY_DELAYS[attempt - 1])
+            self.calls += 1
+            try:
+                return str(
+                    self._chat(seed, reasoning=reasoning, num_predict=num_predict)
+                    .invoke([("system", system), ("human", user)])
+                    .content
+                )
+            except Exception as exc:
+                last_error = exc
+                if attempt < 2 and _retryable(exc):
+                    continue
+                raise
+        raise last_error

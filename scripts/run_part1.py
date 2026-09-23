@@ -132,7 +132,8 @@ def main(argv: list[str] | None = None) -> int:
                         )
         meta["finished_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
         meta["llm_calls"] = {"policy": llm.calls, "policy_cache_hits": llm.hits,
-                             "judge": judge.calls, "judge_cache_hits": judge.hits}
+                             "judge": judge.calls, "judge_cache_hits": judge.hits,
+                             "policy_retries": llm.retries, "judge_retries": judge.retries}
         meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
 
     runs = [json.loads(line) for line in runs_path.read_text(encoding="utf-8").splitlines()]

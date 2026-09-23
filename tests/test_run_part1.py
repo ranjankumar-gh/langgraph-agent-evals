@@ -19,7 +19,7 @@ def _fake_git(*args: str) -> str:
 
 class _FakeOllamaLLM:
     """Stands in for OllamaLLM: no HTTP, no Ollama contact, just the attributes
-    run_part1 reads (name/digest/temperature/calls/hits)."""
+    run_part1 reads (name/digest/temperature/calls/hits/retries)."""
 
     def __init__(self, model, *, num_predict=512, cache_path=None, base_url=None, temperature=0.7):
         self.name = model
@@ -27,6 +27,7 @@ class _FakeOllamaLLM:
         self.temperature = temperature
         self.calls = 0
         self.hits = 0
+        self.retries = 0
 
 
 def _fake_run_record(case_id: str, variant: str, trial: int) -> RunRecord:
