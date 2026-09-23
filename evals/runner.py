@@ -15,7 +15,7 @@ from agent.graph import build_graph, run_agent
 from agent.llm import LLM
 from agent.tools import Tools
 from env.db import create_db
-from evals.checks.answer import answer_check
+from evals.checks.answer import answer_check, string_check
 from evals.checks.end_state import check_end_state, observed_refunds
 from evals.checks.trajectory import MATCH_MODES, check_constraints, match_trajectory
 from evals.schema import Case
@@ -36,6 +36,7 @@ class RunRecord:
     final_message: str
     mutations_fired: list[str]
     crashed: str | None
+    grading_error: str | None
     end_state_pass: bool
     end_state_detail: str
     constraints_pass: bool
@@ -73,7 +74,23 @@ def run_case(case: Case, variant: str, trial: int, llm: LLM, judge: LLM) -> RunR
     calls = [c.name for c in tools.log]
     end = check_end_state(conn, case.end_states)
     constraints = check_constraints(calls, case.constraints)
-    answer = answer_check(judge, case, final, seed=seed)
+    grading_error: str | None = None
+    string_pass = False
+    judge_score = 0
+    judge_rationale = ""
+    answer_pass = False
+    try:
+        answer = answer_check(judge, case, final, seed=seed)
+        string_pass = answer.string_pass
+        judge_score = answer.judge_score
+        judge_rationale = answer.judge_rationale
+        answer_pass = answer.passed and crashed is None
+    except Exception as exc:
+        grading_error = f"{type(exc).__name__}: {exc}"
+        string_pass = string_check(final, case.answer).passed
+        judge_score = 0
+        judge_rationale = "grading error"
+        answer_pass = False
     return RunRecord(
         case_id=case.id,
         slice=case.slice,
@@ -88,14 +105,15 @@ def run_case(case: Case, variant: str, trial: int, llm: LLM, judge: LLM) -> RunR
         final_message=final,
         mutations_fired=fired,
         crashed=crashed,
+        grading_error=grading_error,
         end_state_pass=end.passed and crashed is None,
         end_state_detail=end.detail,
         constraints_pass=constraints.passed and crashed is None,
         constraints_detail=constraints.detail,
         mode_pass={m: match_trajectory(calls, case.reference_trajectory, m) for m in MATCH_MODES},
-        string_pass=answer.string_pass,
-        judge_score=answer.judge_score,
-        judge_rationale=answer.judge_rationale,
-        answer_pass=answer.passed and crashed is None,
+        string_pass=string_pass,
+        judge_score=judge_score,
+        judge_rationale=judge_rationale,
+        answer_pass=answer_pass,
         elapsed_s=round(time.perf_counter() - started, 3),
     )

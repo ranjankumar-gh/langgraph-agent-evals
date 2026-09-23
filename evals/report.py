@@ -7,6 +7,7 @@
 - Brittle-fail rate for trajectory layer L: among valid-variant runs whose end state
   and answer both pass, the fraction L rejects.
 - A crashed run passes no harness.
+- Runs whose grader failed (grading_error) are excluded from every rate and counted separately.
 All rates carry Wilson 95% intervals.
 """
 from __future__ import annotations
@@ -64,10 +65,13 @@ def _tbp(runs: list[dict]) -> dict:
 
 
 def summarize(runs: list[dict]) -> dict:
+    grading_errors = sum(bool(r.get("grading_error")) for r in runs)
+    runs = [r for r in runs if not r.get("grading_error")]
     variants = [v for v in VARIANTS if any(r["variant"] == v for r in runs)]
     summary: dict = {
         "n_runs": len(runs),
         "crashed": sum(bool(r["crashed"]) for r in runs),
+        "grading_errors": grading_errors,
         "harness_pass": {},
         "tbp": {},
         "mutant_survival": {},
@@ -114,7 +118,7 @@ def render_markdown(summary: dict, metadata: dict) -> str:
     out.append(
         f"Commit `{metadata.get('git_commit', '?')}` - langgraph {metadata.get('langgraph', '?')} - "
         f"policy `{metadata.get('policy_model', {}).get('name', '?')}` - judge `{metadata.get('judge_model', {}).get('name', '?')}` - "
-        f"k={metadata.get('k', '?')} - {summary['n_runs']} runs, {summary['crashed']} crashed"
+        f"k={metadata.get('k', '?')} - {summary['n_runs']} runs, {summary['crashed']} crashed, {summary.get('grading_errors', 0)} grading errors"
     )
     out += ["", "## Mutant survival (lower is better)", "", "| Mutant | " + " | ".join(HARNESSES) + " |",
             "|---" * (len(HARNESSES) + 1) + "|"]

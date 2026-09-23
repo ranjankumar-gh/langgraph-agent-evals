@@ -45,3 +45,12 @@ def test_crash_is_recorded_not_raised():
     rec = run_case(CASE, "baseline", 0, agent, judge)
     assert rec.crashed.startswith("AssertionError")
     assert not rec.answer_pass
+
+
+def test_judge_failure_is_a_grading_error_not_a_crash():
+    agent, judge = llms()
+    judge.responses = []  # structured() raises AssertionError in answer_check
+    rec = run_case(CASE, "baseline", 0, agent, judge)
+    assert rec.crashed is None
+    assert rec.grading_error.startswith("AssertionError")
+    assert rec.answer_pass is False

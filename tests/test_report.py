@@ -1,9 +1,9 @@
 from evals.report import passes, rate, summarize, wilson
 
 
-def run(variant, *, answer=True, end=True, cons=True, modes=None, fired=(), slice_="happy", crashed=None):
+def run(variant, *, answer=True, end=True, cons=True, modes=None, fired=(), slice_="happy", crashed=None, grading_error=None):
     return {
-        "case_id": "X", "slice": slice_, "variant": variant, "trial": 0, "crashed": crashed,
+        "case_id": "X", "slice": slice_, "variant": variant, "trial": 0, "crashed": crashed, "grading_error": grading_error,
         "answer_pass": answer, "end_state_pass": end, "constraints_pass": cons,
         "mode_pass": modes or {"strict": True, "unordered": True, "subset": True, "superset": True},
         "mutations_fired": list(fired),
@@ -37,3 +37,14 @@ def test_summary_rates():
     assert s["brittle_fail"]["alt_recheck"]["constraints"]["k"] == 0
     assert s["brittle_fail"]["baseline"]["strict"]["k"] == 0
     assert rate(1, 4)["rate"] == 0.25
+
+
+def test_grading_error_excluded_from_rates():
+    runs = [
+        run("baseline"),
+        run("baseline", grading_error="ConnectionError: timeout"),
+    ]
+    s = summarize(runs)
+    assert s["n_runs"] == 1  # grading error run excluded
+    assert s["grading_errors"] == 1
+    assert s["harness_pass"]["baseline"]["answer_only"]["n"] == 1  # only non-error run counted
