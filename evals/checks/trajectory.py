@@ -37,7 +37,12 @@ def match_trajectory(observed: list[str], reference: list[str], mode: str) -> bo
     if mode == "unordered":
         return Counter(observed) == Counter(reference)
     if mode == "subset":
-        return set(observed) <= set(reference)
+        # Multiset subset: every call in observed must fit within reference's
+        # counts per tool name (matches agentevals 0.0.9's per-call matching,
+        # not a plain set comparison). See docs/matcher-semantics.md.
+        return not (Counter(observed) - Counter(reference))
     if mode == "superset":
-        return set(observed) >= set(reference)
+        # Multiset superset: every call in reference must fit within observed's
+        # counts per tool name. See docs/matcher-semantics.md.
+        return not (Counter(reference) - Counter(observed))
     raise ValueError(f"unknown mode {mode!r}")

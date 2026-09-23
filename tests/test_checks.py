@@ -79,7 +79,7 @@ REF = ["lookup_order", "get_refund_history", "check_eligibility", "issue_refund"
     [
         (REF, True, True, True, True),
         (["get_refund_history", "lookup_order", "check_eligibility", "issue_refund"], False, True, True, True),
-        (REF[:3] + ["lookup_order", "issue_refund"], False, False, True, True),
+        (REF[:3] + ["lookup_order", "issue_refund"], False, False, False, True),
         (["lookup_order", "get_refund_history", "issue_refund"], False, False, True, False),
         (REF + ["send_email"], False, False, False, True),
     ],
