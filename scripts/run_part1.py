@@ -57,6 +57,16 @@ def main(argv: list[str] | None = None) -> int:
             previous = json.loads(meta_path.read_text())
             if previous["git_commit"] != commit:
                 sys.exit(f"{out} holds runs from {previous['git_commit']}; use a new --out or delete it")
+            if previous["policy_model"]["name"] != POLICY_MODEL:
+                sys.exit(
+                    f"{out} holds runs graded by policy model {previous['policy_model']['name']!r}; "
+                    f"use a new --out or delete it"
+                )
+            if previous["judge_model"]["name"] != args.judge_model:
+                sys.exit(
+                    f"{out} holds runs graded by judge model {previous['judge_model']['name']!r}; "
+                    f"use a new --out or delete it"
+                )
         variants = args.variants.split(",")
         cases = load_cases(Path(args.cases))
         if args.ids:

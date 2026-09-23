@@ -154,6 +154,10 @@ All rates carry Wilson 95% confidence intervals.
   judge produced a given number even if that judge tag is gone by the time they read
   it, and can reproduce with `--judge-model gemma3:4b` if the original judge is no
   longer reachable.
+- **A changed judge needs a fresh `--out`.** `scripts/run_part1.py` refuses to resume
+  into a `--out` directory whose recorded `policy_model`/`judge_model` name doesn't
+  match the current run's, so switching `--judge-model` (or the policy model) never
+  silently mixes rows graded by two different judges into one results directory.
 
 ## Part 1 results
 
