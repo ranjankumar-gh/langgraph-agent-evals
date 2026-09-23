@@ -1,8 +1,11 @@
 """Measured Part 1 run: every case x variant x trial, then the summary.
 
 Resumable: re-running appends only missing (case, variant, trial) rows. Refuses to mix
-rows from two commits, and refuses to measure uncommitted agent/env/evals code unless
---allow-dirty is passed (smoke runs only).
+rows from two commits or two different policy/judge models, and refuses to measure
+uncommitted agent/env/evals code unless --allow-dirty is passed (smoke runs only).
+metadata.json is written before the run loop starts (not just at the end), so an
+interrupted run still leaves provenance behind to resume against; if runs.jsonl already
+has rows but metadata.json is missing, provenance is unknown and the run refuses.
 """
 from __future__ import annotations
 
@@ -53,6 +56,7 @@ def main(argv: list[str] | None = None) -> int:
         dirty = bool(_git("status", "--porcelain", "--", "agent", "env", "evals"))
         if dirty and not args.allow_dirty:
             sys.exit("agent/, env/ or evals/ has uncommitted changes; commit before a measured run")
+        previous = None
         if meta_path.exists():
             previous = json.loads(meta_path.read_text())
             if previous["git_commit"] != commit:
@@ -67,6 +71,11 @@ def main(argv: list[str] | None = None) -> int:
                     f"{out} holds runs graded by judge model {previous['judge_model']['name']!r}; "
                     f"use a new --out or delete it"
                 )
+        elif runs_path.exists() and runs_path.read_text(encoding="utf-8").strip():
+            sys.exit(
+                f"{out} holds runs in runs.jsonl but no metadata.json; provenance unknown; "
+                f"use a new --out or delete it"
+            )
         variants = args.variants.split(",")
         cases = load_cases(Path(args.cases))
         if args.ids:
@@ -75,10 +84,11 @@ def main(argv: list[str] | None = None) -> int:
         cases = cases[: args.limit]
         llm = OllamaLLM(POLICY_MODEL, num_predict=400)
         judge = OllamaLLM(args.judge_model, num_predict=200)
+        started_at = previous["started_at"] if previous else datetime.now(timezone.utc).isoformat(timespec="seconds")
         meta = {
             "git_commit": commit,
             "dirty": dirty,
-            "started_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "started_at": started_at,
             "python": platform.python_version(),
             "langgraph": version("langgraph"),
             "langchain_ollama": version("langchain-ollama"),
@@ -94,6 +104,10 @@ def main(argv: list[str] | None = None) -> int:
             "variants": variants,
             "n_cases": len(cases),
         }
+        # Written now, before the loop, so an interrupted run still leaves provenance behind to
+        # resume against (see the missing-metadata refusal above); updated again once the loop
+        # finishes with finished_at and llm_calls.
+        meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
         done: set[tuple[str, str, int]] = set()
         if runs_path.exists():
             for line in runs_path.read_text(encoding="utf-8").splitlines():
