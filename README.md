@@ -168,4 +168,79 @@ All rates carry Wilson 95% confidence intervals.
 
 ## Part 1 results
 
-Filled in after the measured run (Task 10).
+Measured run at commit `cc1b6f8b0fad2b79d51ed4e9694dcee34e3fd073`, LangGraph `1.2.12`. Policy
+model `nemotron-3-nano:30b-cloud` (digest `6fe6f0516d95790b0494e37f26309726b96ec0c78922c86a0208b4253e578beb`),
+judge model `gpt-oss:20b-cloud` (digest `cc40af19c7ab8964518c996e5e747c5810ba5ce38366e5f399a291210475e7cb`)
+— both Ollama Cloud models, reached through the local Ollama app. k=3, 52 cases x 6 variants =
+936 runs, 0 crashed, 0 grading errors, 0 retries. Run window: 2026-09-23 11:36:56 UTC to
+2026-09-23 12:38:37 UTC.
+
+### Mutant survival (lower is better)
+
+| Mutant | answer_only | three_artifact | mode:strict | mode:unordered | mode:subset | mode:superset |
+|---|---|---|---|---|---|---|
+| A | 52% (35/67; 95% CI 40%-64%) | 0% (0/67; 95% CI 0%-5%) | 0% (0/67; 95% CI 0%-5%) | 0% (0/67; 95% CI 0%-5%) | 52% (35/67; 95% CI 40%-64%) | 0% (0/67; 95% CI 0%-5%) |
+| B | 0% (0/15; 95% CI 0%-20%) | 0% (0/15; 95% CI 0%-20%) | 0% (0/15; 95% CI 0%-20%) | 0% (0/15; 95% CI 0%-20%) | 0% (0/15; 95% CI 0%-20%) | 0% (0/15; 95% CI 0%-20%) |
+| C | 88% (111/126; 95% CI 81%-93%) | 31% (39/126; 95% CI 24%-39%) | 0% (0/126; 95% CI 0%-3%) | 0% (0/126; 95% CI 0%-3%) | 0% (0/126; 95% CI 0%-3%) | 88% (111/126; 95% CI 81%-93%) |
+
+### Trajectory-Blind Pass rate
+
+| Variant | TBP rate |
+|---|---|
+| baseline | 0% (0/136; 95% CI 0%-3%) |
+| alt_history_early | 0% (0/136; 95% CI 0%-3%) |
+| alt_recheck | 0% (0/136; 95% CI 0%-3%) |
+| A | 31% (35/112; 95% CI 23%-40%) |
+| B | 0% (0/122; 95% CI 0%-3%) |
+| C | 53% (72/136; 95% CI 45%-61%) |
+| all | 14% (107/778; 95% CI 12%-16%) |
+
+### Brittle-fail rate on valid variants (lower is better)
+
+| Variant | constraints | strict | unordered | subset | superset |
+|---|---|---|---|---|---|
+| baseline | 0% (0/136; 95% CI 0%-3%) | 0% (0/136; 95% CI 0%-3%) | 0% (0/136; 95% CI 0%-3%) | 0% (0/136; 95% CI 0%-3%) | 0% (0/136; 95% CI 0%-3%) |
+| alt_history_early | 0% (0/136; 95% CI 0%-3%) | 93% (127/136; 95% CI 88%-96%) | 12% (16/136; 95% CI 7%-18%) | 12% (16/136; 95% CI 7%-18%) | 0% (0/136; 95% CI 0%-3%) |
+| alt_recheck | 0% (0/136; 95% CI 0%-3%) | 40% (55/136; 95% CI 33%-49%) | 40% (55/136; 95% CI 33%-49%) | 40% (55/136; 95% CI 33%-49%) | 0% (0/136; 95% CI 0%-3%) |
+
+### By slice
+
+| Slice | Mutant survival, answer-only | Mutant survival, three-artifact | TBP rate |
+|---|---|---|---|
+| ambiguous | 85% (11/13; 95% CI 58%-96%) | 0% (0/13; 95% CI 0%-23%) | 11% (11/102; 95% CI 6%-18%) |
+| approval_rejected | 96% (26/27; 95% CI 82%-99%) | 0% (0/27; 95% CI 0%-12%) | 25% (26/102; 95% CI 18%-35%) |
+| happy | 100% (45/45; 95% CI 92%-100%) | 0% (0/45; 95% CI 0%-8%) | 25% (45/180; 95% CI 19%-32%) |
+| ineligible | 62% (24/39; 95% CI 46%-75%) | 62% (24/39; 95% CI 46%-75%) | 0% (0/129; 95% CI 0%-3%) |
+| injection | 33% (12/36; 95% CI 20%-50%) | 25% (9/36; 95% CI 14%-41%) | 5% (3/66; 95% CI 2%-13%) |
+| missing_data | 67% (6/9; 95% CI 35%-88%) | 67% (6/9; 95% CI 35%-88%) | 0% (0/87; 95% CI 0%-4%) |
+| tool_failure | 56% (22/39; 95% CI 41%-71%) | 0% (0/39; 95% CI 0%-9%) | 20% (22/112; 95% CI 13%-28%) |
+
+### Notes
+
+The judge endorsed a reply the database contradicted in 0 of 936 runs (`answer_pass` true,
+`end_state_pass` false, not crashed). There are no judge-fooled transcripts in this run.
+
+Mutant C survives the three-artifact harness in 31% of its fired runs (39/126). All 39 of
+those passing runs share the same shape: exactly 2 `lookup_order` calls and no `issue_refund`
+call — i.e. the case ends before a refund is issued, so mutant C's redundant lookup in
+`check_eligibility` is the only extra one that fires, landing at 2 total lookups, inside the
+`max_calls={"lookup_order": 2}` constraint that legitimate cases (including the `alt_recheck`
+path's extra re-read) are allowed. The 87 runs where C is caught split into 18 that also stop
+before `issue_refund` but still make 3 lookups (over the limit) and 69 that reach `issue_refund`
+with the full 4 redundant lookups from `check_eligibility`, `compute_refund`, and `issue_refund`.
+
+The alternate-path review sampled 10 runs (5 `alt_history_early`, 5 `alt_recheck`) whose tool
+sequence diverged from the case's reference path; Ranjan reviewed all 10 on 2026-09-23 and
+confirmed every one a valid way to handle its request. See
+[`results/part-1/alt-path-review.md`](results/part-1/alt-path-review.md).
+
+The baseline agent passes three-artifact on 87% of runs (136/156); its 20 failing runs span 10
+distinct cases (A05, F05, F06, J01, J03, J04, J06, N01, N04, R02), and in every one of those 20
+runs it is the answer check that fails (`answer_pass` false), per `results/part-1/runs.jsonl`.
+
+Two trajectory-blind transcripts (answer and end state both pass, trajectory constraints fail):
+mutant A —
+[`results/part-1/transcripts/trajectory-blind-A04-A-t1.md`](results/part-1/transcripts/trajectory-blind-A04-A-t1.md)
+(skips `check_eligibility` before `issue_refund`); mutant C —
+[`results/part-1/transcripts/trajectory-blind-A04-C-t0.md`](results/part-1/transcripts/trajectory-blind-A04-C-t0.md)
+(`lookup_order` called 4 times, over the max-2 limit).
