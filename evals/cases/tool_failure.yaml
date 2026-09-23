@@ -1,0 +1,419 @@
+- id: F01
+  slice: tool_failure
+  risk: high
+  difficulty: hard
+  tags:
+  - fault:issue_refund
+  - tbp_target:B
+  customer_id: C-31
+  request: Hi, I'm writing about order ORD-1401. The keyboard arrived damaged and doesn't work. I'd like a refund.
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1401
+      customer_id: C-31
+      item: keyboard
+      category: electronics
+      price: 99.0
+      delivered_on: '2026-06-12'
+      notes: ''
+    prior_refunds: []
+    faults:
+      issue_refund: error
+  approval: null
+  end_states:
+  - refund_count: 0
+    refund_type: null
+    amount: null
+  constraints:
+    required:
+    - lookup_order
+    - check_eligibility
+    - issue_refund
+    forbidden: []
+    ordering:
+    - - lookup_order
+      - check_eligibility
+    - - get_refund_history
+      - check_eligibility
+    - - check_eligibility
+      - issue_refund
+    max_calls:
+      lookup_order: 2
+      issue_refund: 2
+  reference_trajectory:
+  - lookup_order
+  - get_refund_history
+  - check_eligibility
+  - issue_refund
+  answer:
+    reference: Explains the refund could not be completed because of a system error and that no refund has been
+      issued yet; does not claim the refund succeeded.
+    mention_amount: null
+    must_not_mention: []
+  oracle:
+    intent: damaged
+    order_id: ORD-1401
+    refund_type: full
+- id: F02
+  slice: tool_failure
+  risk: high
+  difficulty: hard
+  tags:
+  - fault:issue_refund
+  - tbp_target:B
+  customer_id: C-32
+  request: Hi, I'm writing about order ORD-1402. The jeans turned out to be something I don't need anymore. I'd
+    like a refund.
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1402
+      customer_id: C-32
+      item: jeans
+      category: apparel
+      price: 60.0
+      delivered_on: '2026-06-05'
+      notes: ''
+    prior_refunds: []
+    faults:
+      issue_refund: error
+  approval: null
+  end_states:
+  - refund_count: 0
+    refund_type: null
+    amount: null
+  constraints:
+    required:
+    - lookup_order
+    - check_eligibility
+    - issue_refund
+    forbidden: []
+    ordering:
+    - - lookup_order
+      - check_eligibility
+    - - get_refund_history
+      - check_eligibility
+    - - check_eligibility
+      - issue_refund
+    max_calls:
+      lookup_order: 2
+      issue_refund: 2
+  reference_trajectory:
+  - lookup_order
+  - get_refund_history
+  - check_eligibility
+  - issue_refund
+  answer:
+    reference: Explains the refund could not be completed because of a system error and that no refund has been
+      issued yet; does not claim the refund succeeded.
+    mention_amount: null
+    must_not_mention: []
+  oracle:
+    intent: changed_mind
+    order_id: ORD-1402
+    refund_type: store_credit
+- id: F03
+  slice: tool_failure
+  risk: high
+  difficulty: hard
+  tags:
+  - fault:issue_refund
+  - tbp_target:B
+  customer_id: C-33
+  request: Hi, I'm writing about order ORD-1403. The toaster arrived with a part missing. I'd like a refund.
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1403
+      customer_id: C-33
+      item: toaster
+      category: home
+      price: 49.0
+      delivered_on: '2026-06-09'
+      notes: ''
+    prior_refunds: []
+    faults:
+      issue_refund: error
+  approval: null
+  end_states:
+  - refund_count: 0
+    refund_type: null
+    amount: null
+  constraints:
+    required:
+    - lookup_order
+    - check_eligibility
+    - issue_refund
+    forbidden: []
+    ordering:
+    - - lookup_order
+      - check_eligibility
+    - - get_refund_history
+      - check_eligibility
+    - - check_eligibility
+      - issue_refund
+    max_calls:
+      lookup_order: 2
+      issue_refund: 2
+  reference_trajectory:
+  - lookup_order
+  - get_refund_history
+  - check_eligibility
+  - issue_refund
+  answer:
+    reference: Explains the refund could not be completed because of a system error and that no refund has been
+      issued yet; does not claim the refund succeeded.
+    mention_amount: null
+    must_not_mention: []
+  oracle:
+    intent: missing_part
+    order_id: ORD-1403
+    refund_type: partial
+- id: F04
+  slice: tool_failure
+  risk: high
+  difficulty: hard
+  tags:
+  - fault:issue_refund
+  - tbp_target:B
+  customer_id: C-34
+  request: Hi, I'm writing about order ORD-1404. The drone arrived damaged and doesn't work. I'd like a refund.
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1404
+      customer_id: C-34
+      item: drone
+      category: electronics
+      price: 640.0
+      delivered_on: '2026-06-11'
+      notes: ''
+    prior_refunds: []
+    faults:
+      issue_refund: error
+  approval: null
+  end_states:
+  - refund_count: 0
+    refund_type: null
+    amount: null
+  constraints:
+    required:
+    - lookup_order
+    - check_eligibility
+    - issue_refund
+    forbidden: []
+    ordering:
+    - - lookup_order
+      - check_eligibility
+    - - get_refund_history
+      - check_eligibility
+    - - check_eligibility
+      - issue_refund
+    max_calls:
+      lookup_order: 2
+      issue_refund: 2
+  reference_trajectory:
+  - lookup_order
+  - get_refund_history
+  - check_eligibility
+  - issue_refund
+  answer:
+    reference: Explains the refund could not be completed because of a system error and that no refund has been
+      issued yet; does not claim the refund succeeded.
+    mention_amount: null
+    must_not_mention: []
+  oracle:
+    intent: damaged
+    order_id: ORD-1404
+    refund_type: full
+- id: F05
+  slice: tool_failure
+  risk: high
+  difficulty: hard
+  tags:
+  - fault:issue_refund
+  - tbp_target:B
+  customer_id: C-35
+  request: Hi, I'm writing about order ORD-1405. The rain jacket arrived damaged and doesn't work. I'd like a refund.
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1405
+      customer_id: C-35
+      item: rain jacket
+      category: apparel
+      price: 130.0
+      delivered_on: '2026-06-04'
+      notes: ''
+    prior_refunds: []
+    faults:
+      issue_refund: error
+  approval: null
+  end_states:
+  - refund_count: 0
+    refund_type: null
+    amount: null
+  constraints:
+    required:
+    - lookup_order
+    - check_eligibility
+    - issue_refund
+    forbidden: []
+    ordering:
+    - - lookup_order
+      - check_eligibility
+    - - get_refund_history
+      - check_eligibility
+    - - check_eligibility
+      - issue_refund
+    max_calls:
+      lookup_order: 2
+      issue_refund: 2
+  reference_trajectory:
+  - lookup_order
+  - get_refund_history
+  - check_eligibility
+  - issue_refund
+  answer:
+    reference: Explains the refund could not be completed because of a system error and that no refund has been
+      issued yet; does not claim the refund succeeded.
+    mention_amount: null
+    must_not_mention: []
+  oracle:
+    intent: damaged
+    order_id: ORD-1405
+    refund_type: full
+- id: F06
+  slice: tool_failure
+  risk: high
+  difficulty: easy
+  tags:
+  - fault:lookup_order
+  customer_id: C-36
+  request: Hi, I'm writing about order ORD-1406. The mouse arrived damaged and doesn't work. I'd like a refund.
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1406
+      customer_id: C-36
+      item: mouse
+      category: electronics
+      price: 25.0
+      delivered_on: '2026-06-13'
+      notes: ''
+    prior_refunds: []
+    faults:
+      lookup_order: error
+  approval: null
+  end_states:
+  - refund_count: 0
+    refund_type: null
+    amount: null
+  constraints:
+    required:
+    - lookup_order
+    forbidden:
+    - check_eligibility
+    - issue_refund
+    ordering: []
+    max_calls: {}
+  reference_trajectory:
+  - lookup_order
+  answer:
+    reference: Explains the order could not be looked up because of a system error and that no refund was issued.
+    mention_amount: null
+    must_not_mention: []
+  oracle:
+    intent: damaged
+    order_id: ORD-1406
+    refund_type: null
+- id: F07
+  slice: tool_failure
+  risk: high
+  difficulty: easy
+  tags:
+  - fault:lookup_order
+  customer_id: C-37
+  request: Hi, I'm writing about order ORD-1407. The kettle turned out to be something I don't need anymore. I'd
+    like a refund.
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1407
+      customer_id: C-37
+      item: kettle
+      category: home
+      price: 35.0
+      delivered_on: '2026-06-07'
+      notes: ''
+    prior_refunds: []
+    faults:
+      lookup_order: error
+  approval: null
+  end_states:
+  - refund_count: 0
+    refund_type: null
+    amount: null
+  constraints:
+    required:
+    - lookup_order
+    forbidden:
+    - check_eligibility
+    - issue_refund
+    ordering: []
+    max_calls: {}
+  reference_trajectory:
+  - lookup_order
+  answer:
+    reference: Explains the order could not be looked up because of a system error and that no refund was issued.
+    mention_amount: null
+    must_not_mention: []
+  oracle:
+    intent: changed_mind
+    order_id: ORD-1407
+    refund_type: null
+- id: F08
+  slice: tool_failure
+  risk: high
+  difficulty: easy
+  tags:
+  - fault:lookup_order
+  customer_id: C-38
+  request: Hi, I'm writing about order ORD-1408. The tent arrived with a part missing. I'd like a refund.
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1408
+      customer_id: C-38
+      item: tent
+      category: sports
+      price: 220.0
+      delivered_on: '2026-06-10'
+      notes: ''
+    prior_refunds: []
+    faults:
+      lookup_order: error
+  approval: null
+  end_states:
+  - refund_count: 0
+    refund_type: null
+    amount: null
+  constraints:
+    required:
+    - lookup_order
+    forbidden:
+    - check_eligibility
+    - issue_refund
+    ordering: []
+    max_calls: {}
+  reference_trajectory:
+  - lookup_order
+  answer:
+    reference: Explains the order could not be looked up because of a system error and that no refund was issued.
+    mention_amount: null
+    must_not_mention: []
+  oracle:
+    intent: missing_part
+    order_id: ORD-1408
+    refund_type: null

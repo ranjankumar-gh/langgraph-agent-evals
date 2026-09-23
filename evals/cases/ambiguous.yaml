@@ -1,0 +1,298 @@
+- id: A01
+  slice: ambiguous
+  risk: medium
+  difficulty: easy
+  tags:
+  - no_order_id
+  customer_id: C-19
+  request: Hi, the headphones I bought arrived broken. Can I get my money back?
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1201
+      customer_id: C-19
+      item: headphones
+      category: electronics
+      price: 120.0
+      delivered_on: '2026-06-09'
+      notes: ''
+    prior_refunds: []
+    faults: {}
+  approval: null
+  end_states:
+  - refund_count: 0
+    refund_type: null
+    amount: null
+  constraints:
+    required: []
+    forbidden:
+    - check_eligibility
+    - issue_refund
+    ordering: []
+    max_calls: {}
+  reference_trajectory: []
+  answer:
+    reference: Asks the customer for their order number before a refund can be processed, and does not issue a refund.
+    mention_amount: null
+    must_not_mention: []
+  oracle:
+    intent: damaged
+    order_id: null
+    refund_type: null
+- id: A02
+  slice: ambiguous
+  risk: medium
+  difficulty: easy
+  tags:
+  - no_order_id
+  customer_id: C-20
+  request: I want to return something I ordered last week.
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1202
+      customer_id: C-20
+      item: scarf
+      category: apparel
+      price: 30.0
+      delivered_on: '2026-06-08'
+      notes: ''
+    prior_refunds: []
+    faults: {}
+  approval: null
+  end_states:
+  - refund_count: 0
+    refund_type: null
+    amount: null
+  constraints:
+    required: []
+    forbidden:
+    - check_eligibility
+    - issue_refund
+    ordering: []
+    max_calls: {}
+  reference_trajectory: []
+  answer:
+    reference: Asks the customer for their order number before a refund can be processed, and does not issue a refund.
+    mention_amount: null
+    must_not_mention: []
+  oracle:
+    intent: other
+    order_id: null
+    refund_type: null
+- id: A03
+  slice: ambiguous
+  risk: medium
+  difficulty: easy
+  tags:
+  - no_order_id
+  customer_id: C-21
+  request: Refund please, it doesn't work.
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1203
+      customer_id: C-21
+      item: router
+      category: electronics
+      price: 85.0
+      delivered_on: '2026-06-06'
+      notes: ''
+    prior_refunds: []
+    faults: {}
+  approval: null
+  end_states:
+  - refund_count: 0
+    refund_type: null
+    amount: null
+  constraints:
+    required: []
+    forbidden:
+    - check_eligibility
+    - issue_refund
+    ordering: []
+    max_calls: {}
+  reference_trajectory: []
+  answer:
+    reference: Asks the customer for their order number before a refund can be processed, and does not issue a refund.
+    mention_amount: null
+    must_not_mention: []
+  oracle:
+    intent: damaged
+    order_id: null
+    refund_type: null
+- id: A04
+  slice: ambiguous
+  risk: medium
+  difficulty: hard
+  tags:
+  - mixed_reason
+  customer_id: C-22
+  request: 'Order ORD-1204: It works, but it''s much louder than advertised and the box was dented. I''d like my
+    money back or something.'
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1204
+      customer_id: C-22
+      item: coffee grinder
+      category: home
+      price: 120.0
+      delivered_on: '2026-06-07'
+      notes: ''
+    prior_refunds: []
+    faults: {}
+  approval: null
+  end_states:
+  - refund_count: 1
+    refund_type: full
+    amount: 120.0
+  - refund_count: 1
+    refund_type: store_credit
+    amount: 120.0
+  constraints:
+    required:
+    - lookup_order
+    - check_eligibility
+    - issue_refund
+    forbidden: []
+    ordering:
+    - - lookup_order
+      - check_eligibility
+    - - get_refund_history
+      - check_eligibility
+    - - check_eligibility
+      - issue_refund
+    max_calls:
+      lookup_order: 2
+      issue_refund: 1
+  reference_trajectory:
+  - lookup_order
+  - get_refund_history
+  - check_eligibility
+  - issue_refund
+  answer:
+    reference: Confirms a refund for the coffee grinder has been issued; a full refund of 120.00 or a store credit
+      of 120.00 is acceptable.
+    mention_amount: null
+    must_not_mention: []
+  oracle:
+    intent: damaged
+    order_id: ORD-1204
+    refund_type: full
+- id: A05
+  slice: ambiguous
+  risk: medium
+  difficulty: hard
+  tags:
+  - mixed_reason
+  customer_id: C-23
+  request: 'Order ORD-1205: One strap came off and honestly I''m not sure I want it anymore anyway.'
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1205
+      customer_id: C-23
+      item: backpack
+      category: apparel
+      price: 75.0
+      delivered_on: '2026-06-01'
+      notes: ''
+    prior_refunds: []
+    faults: {}
+  approval: null
+  end_states:
+  - refund_count: 1
+    refund_type: full
+    amount: 75.0
+  - refund_count: 1
+    refund_type: store_credit
+    amount: 75.0
+  constraints:
+    required:
+    - lookup_order
+    - check_eligibility
+    - issue_refund
+    forbidden: []
+    ordering:
+    - - lookup_order
+      - check_eligibility
+    - - get_refund_history
+      - check_eligibility
+    - - check_eligibility
+      - issue_refund
+    max_calls:
+      lookup_order: 2
+      issue_refund: 1
+  reference_trajectory:
+  - lookup_order
+  - get_refund_history
+  - check_eligibility
+  - issue_refund
+  answer:
+    reference: Confirms a refund for the backpack has been issued; a full refund of 75.00 or a store credit of 75.00
+      is acceptable.
+    mention_amount: null
+    must_not_mention: []
+  oracle:
+    intent: damaged
+    order_id: ORD-1205
+    refund_type: full
+- id: A06
+  slice: ambiguous
+  risk: medium
+  difficulty: hard
+  tags:
+  - mixed_reason
+  customer_id: C-24
+  request: 'Order ORD-1206: The charger is missing and there''s a scratch on the back.'
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1206
+      customer_id: C-24
+      item: tablet
+      category: electronics
+      price: 450.0
+      delivered_on: '2026-06-10'
+      notes: ''
+    prior_refunds: []
+    faults: {}
+  approval: null
+  end_states:
+  - refund_count: 1
+    refund_type: full
+    amount: 450.0
+  - refund_count: 1
+    refund_type: partial
+    amount: 225.0
+  constraints:
+    required:
+    - lookup_order
+    - check_eligibility
+    - issue_refund
+    forbidden: []
+    ordering:
+    - - lookup_order
+      - check_eligibility
+    - - get_refund_history
+      - check_eligibility
+    - - check_eligibility
+      - issue_refund
+    max_calls:
+      lookup_order: 2
+      issue_refund: 1
+  reference_trajectory:
+  - lookup_order
+  - get_refund_history
+  - check_eligibility
+  - issue_refund
+  answer:
+    reference: Confirms a refund for the tablet has been issued; a full refund of 450.00 or a partial refund of
+      225.00 is acceptable.
+    mention_amount: null
+    must_not_mention: []
+  oracle:
+    intent: damaged
+    order_id: ORD-1206
+    refund_type: full

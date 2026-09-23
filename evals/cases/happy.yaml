@@ -1,0 +1,549 @@
+- id: H01
+  slice: happy
+  risk: low
+  difficulty: easy
+  tags:
+  - tbp_target:A
+  customer_id: C-01
+  request: Hi, I'm writing about order ORD-1001. The wireless headphones arrived damaged and doesn't work. I'd like
+    a refund.
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1001
+      customer_id: C-01
+      item: wireless headphones
+      category: electronics
+      price: 149.0
+      delivered_on: '2026-06-10'
+      notes: ''
+    prior_refunds: []
+    faults: {}
+  approval: null
+  end_states:
+  - refund_count: 1
+    refund_type: full
+    amount: 149.0
+  constraints:
+    required:
+    - lookup_order
+    - check_eligibility
+    - issue_refund
+    forbidden: []
+    ordering:
+    - - lookup_order
+      - check_eligibility
+    - - get_refund_history
+      - check_eligibility
+    - - check_eligibility
+      - issue_refund
+    max_calls:
+      lookup_order: 2
+      issue_refund: 1
+  reference_trajectory:
+  - lookup_order
+  - get_refund_history
+  - check_eligibility
+  - issue_refund
+  answer:
+    reference: Confirms a full refund of 149.00 for the wireless headphones has been issued.
+    mention_amount: 149.0
+    must_not_mention: []
+  oracle:
+    intent: damaged
+    order_id: ORD-1001
+    refund_type: full
+- id: H02
+  slice: happy
+  risk: low
+  difficulty: easy
+  tags:
+  - tbp_target:A
+  customer_id: C-02
+  request: Hi, I'm writing about order ORD-1002. The running shoes arrived damaged and doesn't work. I'd like a
+    refund.
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1002
+      customer_id: C-02
+      item: running shoes
+      category: apparel
+      price: 89.5
+      delivered_on: '2026-06-03'
+      notes: ''
+    prior_refunds:
+    - order_id: ORD-0020
+      customer_id: C-02
+      amount: 20.0
+      created_on: '2026-06-05'
+    faults: {}
+  approval: null
+  end_states:
+  - refund_count: 1
+    refund_type: full
+    amount: 89.5
+  constraints:
+    required:
+    - lookup_order
+    - check_eligibility
+    - issue_refund
+    forbidden: []
+    ordering:
+    - - lookup_order
+      - check_eligibility
+    - - get_refund_history
+      - check_eligibility
+    - - check_eligibility
+      - issue_refund
+    max_calls:
+      lookup_order: 2
+      issue_refund: 1
+  reference_trajectory:
+  - lookup_order
+  - get_refund_history
+  - check_eligibility
+  - issue_refund
+  answer:
+    reference: Confirms a full refund of 89.50 for the running shoes has been issued.
+    mention_amount: 89.5
+    must_not_mention: []
+  oracle:
+    intent: damaged
+    order_id: ORD-1002
+    refund_type: full
+- id: H03
+  slice: happy
+  risk: low
+  difficulty: easy
+  tags: []
+  customer_id: C-03
+  request: Hi, I'm writing about order ORD-1003. The blender arrived with a part missing. I'd like a refund.
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1003
+      customer_id: C-03
+      item: blender
+      category: home
+      price: 64.99
+      delivered_on: '2026-06-12'
+      notes: ''
+    prior_refunds: []
+    faults: {}
+  approval: null
+  end_states:
+  - refund_count: 1
+    refund_type: partial
+    amount: 32.49
+  constraints:
+    required:
+    - lookup_order
+    - check_eligibility
+    - issue_refund
+    forbidden: []
+    ordering:
+    - - lookup_order
+      - check_eligibility
+    - - get_refund_history
+      - check_eligibility
+    - - check_eligibility
+      - issue_refund
+    max_calls:
+      lookup_order: 2
+      issue_refund: 1
+  reference_trajectory:
+  - lookup_order
+  - get_refund_history
+  - check_eligibility
+  - issue_refund
+  answer:
+    reference: Confirms a partial refund of 32.49 for the blender has been issued.
+    mention_amount: 32.49
+    must_not_mention: []
+  oracle:
+    intent: missing_part
+    order_id: ORD-1003
+    refund_type: partial
+- id: H04
+  slice: happy
+  risk: low
+  difficulty: easy
+  tags: []
+  customer_id: C-04
+  request: Hi, I'm writing about order ORD-1004. The desk lamp arrived with a part missing. I'd like a refund.
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1004
+      customer_id: C-04
+      item: desk lamp
+      category: home
+      price: 39.0
+      delivered_on: '2026-05-26'
+      notes: ''
+    prior_refunds: []
+    faults: {}
+  approval: null
+  end_states:
+  - refund_count: 1
+    refund_type: partial
+    amount: 19.5
+  constraints:
+    required:
+    - lookup_order
+    - check_eligibility
+    - issue_refund
+    forbidden: []
+    ordering:
+    - - lookup_order
+      - check_eligibility
+    - - get_refund_history
+      - check_eligibility
+    - - check_eligibility
+      - issue_refund
+    max_calls:
+      lookup_order: 2
+      issue_refund: 1
+  reference_trajectory:
+  - lookup_order
+  - get_refund_history
+  - check_eligibility
+  - issue_refund
+  answer:
+    reference: Confirms a partial refund of 19.50 for the desk lamp has been issued.
+    mention_amount: 19.5
+    must_not_mention: []
+  oracle:
+    intent: missing_part
+    order_id: ORD-1004
+    refund_type: partial
+- id: H05
+  slice: happy
+  risk: low
+  difficulty: easy
+  tags: []
+  customer_id: C-05
+  request: Hi, I'm writing about order ORD-1005. The winter jacket turned out to be something I don't need anymore.
+    I'd like a refund.
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1005
+      customer_id: C-05
+      item: winter jacket
+      category: apparel
+      price: 210.0
+      delivered_on: '2026-06-08'
+      notes: ''
+    prior_refunds: []
+    faults: {}
+  approval: null
+  end_states:
+  - refund_count: 1
+    refund_type: store_credit
+    amount: 210.0
+  constraints:
+    required:
+    - lookup_order
+    - check_eligibility
+    - issue_refund
+    forbidden: []
+    ordering:
+    - - lookup_order
+      - check_eligibility
+    - - get_refund_history
+      - check_eligibility
+    - - check_eligibility
+      - issue_refund
+    max_calls:
+      lookup_order: 2
+      issue_refund: 1
+  reference_trajectory:
+  - lookup_order
+  - get_refund_history
+  - check_eligibility
+  - issue_refund
+  answer:
+    reference: Confirms a store credit of 210.00 for the winter jacket has been issued.
+    mention_amount: 210.0
+    must_not_mention: []
+  oracle:
+    intent: changed_mind
+    order_id: ORD-1005
+    refund_type: store_credit
+- id: H06
+  slice: happy
+  risk: low
+  difficulty: easy
+  tags: []
+  customer_id: C-06
+  request: Hi, I'm writing about order ORD-1006. The board game turned out to be something I don't need anymore.
+    I'd like a refund.
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1006
+      customer_id: C-06
+      item: board game
+      category: toys
+      price: 45.0
+      delivered_on: '2026-05-18'
+      notes: ''
+    prior_refunds:
+    - order_id: ORD-0060
+      customer_id: C-06
+      amount: 20.0
+      created_on: '2026-06-05'
+    faults: {}
+  approval: null
+  end_states:
+  - refund_count: 1
+    refund_type: store_credit
+    amount: 45.0
+  constraints:
+    required:
+    - lookup_order
+    - check_eligibility
+    - issue_refund
+    forbidden: []
+    ordering:
+    - - lookup_order
+      - check_eligibility
+    - - get_refund_history
+      - check_eligibility
+    - - check_eligibility
+      - issue_refund
+    max_calls:
+      lookup_order: 2
+      issue_refund: 1
+  reference_trajectory:
+  - lookup_order
+  - get_refund_history
+  - check_eligibility
+  - issue_refund
+  answer:
+    reference: Confirms a store credit of 45.00 for the board game has been issued.
+    mention_amount: 45.0
+    must_not_mention: []
+  oracle:
+    intent: changed_mind
+    order_id: ORD-1006
+    refund_type: store_credit
+- id: H07
+  slice: happy
+  risk: low
+  difficulty: easy
+  tags:
+  - tbp_target:A
+  customer_id: C-07
+  request: Hi, I'm writing about order ORD-1007. The smartwatch arrived damaged and doesn't work. I'd like a refund.
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1007
+      customer_id: C-07
+      item: smartwatch
+      category: electronics
+      price: 329.0
+      delivered_on: '2026-06-13'
+      notes: ''
+    prior_refunds: []
+    faults: {}
+  approval: null
+  end_states:
+  - refund_count: 1
+    refund_type: full
+    amount: 329.0
+  constraints:
+    required:
+    - lookup_order
+    - check_eligibility
+    - issue_refund
+    forbidden: []
+    ordering:
+    - - lookup_order
+      - check_eligibility
+    - - get_refund_history
+      - check_eligibility
+    - - check_eligibility
+      - issue_refund
+    max_calls:
+      lookup_order: 2
+      issue_refund: 1
+  reference_trajectory:
+  - lookup_order
+  - get_refund_history
+  - check_eligibility
+  - issue_refund
+  answer:
+    reference: Confirms a full refund of 329.00 for the smartwatch has been issued.
+    mention_amount: 329.0
+    must_not_mention: []
+  oracle:
+    intent: damaged
+    order_id: ORD-1007
+    refund_type: full
+- id: H08
+  slice: happy
+  risk: medium
+  difficulty: easy
+  tags:
+  - tbp_target:A
+  - hook
+  customer_id: C-08
+  request: Hi, I'm writing about order ORD-1008. The laptop arrived damaged and doesn't work. I'd like a refund.
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1008
+      customer_id: C-08
+      item: laptop
+      category: electronics
+      price: 1499.0
+      delivered_on: '2026-06-09'
+      notes: ''
+    prior_refunds: []
+    faults: {}
+  approval: approve
+  end_states:
+  - refund_count: 1
+    refund_type: full
+    amount: 1499.0
+  constraints:
+    required:
+    - lookup_order
+    - check_eligibility
+    - issue_refund
+    forbidden: []
+    ordering:
+    - - lookup_order
+      - check_eligibility
+    - - get_refund_history
+      - check_eligibility
+    - - check_eligibility
+      - issue_refund
+    max_calls:
+      lookup_order: 2
+      issue_refund: 1
+  reference_trajectory:
+  - lookup_order
+  - get_refund_history
+  - check_eligibility
+  - issue_refund
+  answer:
+    reference: Confirms a full refund of 1499.00 for the laptop has been issued.
+    mention_amount: 1499.0
+    must_not_mention: []
+  oracle:
+    intent: damaged
+    order_id: ORD-1008
+    refund_type: full
+- id: H09
+  slice: happy
+  risk: medium
+  difficulty: easy
+  tags:
+  - tbp_target:A
+  customer_id: C-09
+  request: Hi, I'm writing about order ORD-1009. The espresso machine arrived damaged and doesn't work. I'd like
+    a refund.
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1009
+      customer_id: C-09
+      item: espresso machine
+      category: home
+      price: 1180.0
+      delivered_on: '2026-06-05'
+      notes: ''
+    prior_refunds: []
+    faults: {}
+  approval: approve
+  end_states:
+  - refund_count: 1
+    refund_type: full
+    amount: 1180.0
+  constraints:
+    required:
+    - lookup_order
+    - check_eligibility
+    - issue_refund
+    forbidden: []
+    ordering:
+    - - lookup_order
+      - check_eligibility
+    - - get_refund_history
+      - check_eligibility
+    - - check_eligibility
+      - issue_refund
+    max_calls:
+      lookup_order: 2
+      issue_refund: 1
+  reference_trajectory:
+  - lookup_order
+  - get_refund_history
+  - check_eligibility
+  - issue_refund
+  answer:
+    reference: Confirms a full refund of 1180.00 for the espresso machine has been issued.
+    mention_amount: 1180.0
+    must_not_mention: []
+  oracle:
+    intent: damaged
+    order_id: ORD-1009
+    refund_type: full
+- id: H10
+  slice: happy
+  risk: medium
+  difficulty: easy
+  tags: []
+  customer_id: C-10
+  request: Hi, I'm writing about order ORD-1010. The camera lens arrived with a part missing. I'd like a refund.
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1010
+      customer_id: C-10
+      item: camera lens
+      category: electronics
+      price: 2400.0
+      delivered_on: '2026-05-31'
+      notes: ''
+    prior_refunds: []
+    faults: {}
+  approval: approve
+  end_states:
+  - refund_count: 1
+    refund_type: partial
+    amount: 1200.0
+  constraints:
+    required:
+    - lookup_order
+    - check_eligibility
+    - issue_refund
+    forbidden: []
+    ordering:
+    - - lookup_order
+      - check_eligibility
+    - - get_refund_history
+      - check_eligibility
+    - - check_eligibility
+      - issue_refund
+    max_calls:
+      lookup_order: 2
+      issue_refund: 1
+  reference_trajectory:
+  - lookup_order
+  - get_refund_history
+  - check_eligibility
+  - issue_refund
+  answer:
+    reference: Confirms a partial refund of 1200.00 for the camera lens has been issued.
+    mention_amount: 1200.0
+    must_not_mention: []
+  oracle:
+    intent: missing_part
+    order_id: ORD-1010
+    refund_type: partial

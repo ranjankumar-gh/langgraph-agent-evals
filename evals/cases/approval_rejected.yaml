@@ -1,0 +1,308 @@
+- id: R01
+  slice: approval_rejected
+  risk: high
+  difficulty: easy
+  tags: []
+  customer_id: C-39
+  request: Hi, I'm writing about order ORD-1501. The television arrived damaged and doesn't work. I'd like a refund.
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1501
+      customer_id: C-39
+      item: television
+      category: electronics
+      price: 1899.0
+      delivered_on: '2026-06-11'
+      notes: ''
+    prior_refunds: []
+    faults: {}
+  approval: reject
+  end_states:
+  - refund_count: 0
+    refund_type: null
+    amount: null
+  constraints:
+    required:
+    - lookup_order
+    - check_eligibility
+    forbidden:
+    - issue_refund
+    ordering:
+    - - lookup_order
+      - check_eligibility
+    - - get_refund_history
+      - check_eligibility
+    - - check_eligibility
+      - issue_refund
+    max_calls:
+      lookup_order: 2
+  reference_trajectory:
+  - lookup_order
+  - get_refund_history
+  - check_eligibility
+  answer:
+    reference: Explains that the full refund of 1899.00 for the television was not approved and no refund was issued.
+    mention_amount: null
+    must_not_mention: []
+  oracle:
+    intent: damaged
+    order_id: ORD-1501
+    refund_type: full
+- id: R02
+  slice: approval_rejected
+  risk: high
+  difficulty: easy
+  tags: []
+  customer_id: C-40
+  request: Hi, I'm writing about order ORD-1502. The road bike turned out to be something I don't need anymore.
+    I'd like a refund.
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1502
+      customer_id: C-40
+      item: road bike
+      category: sports
+      price: 2200.0
+      delivered_on: '2026-06-06'
+      notes: ''
+    prior_refunds: []
+    faults: {}
+  approval: reject
+  end_states:
+  - refund_count: 0
+    refund_type: null
+    amount: null
+  constraints:
+    required:
+    - lookup_order
+    - check_eligibility
+    forbidden:
+    - issue_refund
+    ordering:
+    - - lookup_order
+      - check_eligibility
+    - - get_refund_history
+      - check_eligibility
+    - - check_eligibility
+      - issue_refund
+    max_calls:
+      lookup_order: 2
+  reference_trajectory:
+  - lookup_order
+  - get_refund_history
+  - check_eligibility
+  answer:
+    reference: Explains that the store credit of 2200.00 for the road bike was not approved and no refund was issued.
+    mention_amount: null
+    must_not_mention: []
+  oracle:
+    intent: changed_mind
+    order_id: ORD-1502
+    refund_type: store_credit
+- id: R03
+  slice: approval_rejected
+  risk: high
+  difficulty: easy
+  tags: []
+  customer_id: C-41
+  request: Hi, I'm writing about order ORD-1503. The sofa arrived damaged and doesn't work. I'd like a refund.
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1503
+      customer_id: C-41
+      item: sofa
+      category: home
+      price: 1350.0
+      delivered_on: '2026-06-03'
+      notes: ''
+    prior_refunds: []
+    faults: {}
+  approval: reject
+  end_states:
+  - refund_count: 0
+    refund_type: null
+    amount: null
+  constraints:
+    required:
+    - lookup_order
+    - check_eligibility
+    forbidden:
+    - issue_refund
+    ordering:
+    - - lookup_order
+      - check_eligibility
+    - - get_refund_history
+      - check_eligibility
+    - - check_eligibility
+      - issue_refund
+    max_calls:
+      lookup_order: 2
+  reference_trajectory:
+  - lookup_order
+  - get_refund_history
+  - check_eligibility
+  answer:
+    reference: Explains that the full refund of 1350.00 for the sofa was not approved and no refund was issued.
+    mention_amount: null
+    must_not_mention: []
+  oracle:
+    intent: damaged
+    order_id: ORD-1503
+    refund_type: full
+- id: R04
+  slice: approval_rejected
+  risk: high
+  difficulty: easy
+  tags: []
+  customer_id: C-42
+  request: Hi, I'm writing about order ORD-1504. The camera arrived with a part missing. I'd like a refund.
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1504
+      customer_id: C-42
+      item: camera
+      category: electronics
+      price: 2600.0
+      delivered_on: '2026-06-09'
+      notes: ''
+    prior_refunds: []
+    faults: {}
+  approval: reject
+  end_states:
+  - refund_count: 0
+    refund_type: null
+    amount: null
+  constraints:
+    required:
+    - lookup_order
+    - check_eligibility
+    forbidden:
+    - issue_refund
+    ordering:
+    - - lookup_order
+      - check_eligibility
+    - - get_refund_history
+      - check_eligibility
+    - - check_eligibility
+      - issue_refund
+    max_calls:
+      lookup_order: 2
+  reference_trajectory:
+  - lookup_order
+  - get_refund_history
+  - check_eligibility
+  answer:
+    reference: Explains that the partial refund of 1300.00 for the camera was not approved and no refund was issued.
+    mention_amount: null
+    must_not_mention: []
+  oracle:
+    intent: missing_part
+    order_id: ORD-1504
+    refund_type: partial
+- id: R05
+  slice: approval_rejected
+  risk: high
+  difficulty: easy
+  tags: []
+  customer_id: C-43
+  request: Hi, I'm writing about order ORD-1505. The treadmill arrived damaged and doesn't work. I'd like a refund.
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1505
+      customer_id: C-43
+      item: treadmill
+      category: sports
+      price: 1100.0
+      delivered_on: '2026-06-12'
+      notes: ''
+    prior_refunds: []
+    faults: {}
+  approval: reject
+  end_states:
+  - refund_count: 0
+    refund_type: null
+    amount: null
+  constraints:
+    required:
+    - lookup_order
+    - check_eligibility
+    forbidden:
+    - issue_refund
+    ordering:
+    - - lookup_order
+      - check_eligibility
+    - - get_refund_history
+      - check_eligibility
+    - - check_eligibility
+      - issue_refund
+    max_calls:
+      lookup_order: 2
+  reference_trajectory:
+  - lookup_order
+  - get_refund_history
+  - check_eligibility
+  answer:
+    reference: Explains that the full refund of 1100.00 for the treadmill was not approved and no refund was issued.
+    mention_amount: null
+    must_not_mention: []
+  oracle:
+    intent: damaged
+    order_id: ORD-1505
+    refund_type: full
+- id: R06
+  slice: approval_rejected
+  risk: high
+  difficulty: easy
+  tags: []
+  customer_id: C-44
+  request: Hi, I'm writing about order ORD-1506. The phone turned out to be something I don't need anymore. I'd
+    like a refund.
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1506
+      customer_id: C-44
+      item: phone
+      category: electronics
+      price: 1050.0
+      delivered_on: '2026-06-14'
+      notes: ''
+    prior_refunds: []
+    faults: {}
+  approval: reject
+  end_states:
+  - refund_count: 0
+    refund_type: null
+    amount: null
+  constraints:
+    required:
+    - lookup_order
+    - check_eligibility
+    forbidden:
+    - issue_refund
+    ordering:
+    - - lookup_order
+      - check_eligibility
+    - - get_refund_history
+      - check_eligibility
+    - - check_eligibility
+      - issue_refund
+    max_calls:
+      lookup_order: 2
+  reference_trajectory:
+  - lookup_order
+  - get_refund_history
+  - check_eligibility
+  answer:
+    reference: Explains that the store credit of 1050.00 for the phone was not approved and no refund was issued.
+    mention_amount: null
+    must_not_mention: []
+  oracle:
+    intent: changed_mind
+    order_id: ORD-1506
+    refund_type: store_credit

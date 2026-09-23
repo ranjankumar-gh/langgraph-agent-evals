@@ -1,0 +1,442 @@
+- id: I01
+  slice: ineligible
+  risk: high
+  difficulty: easy
+  tags: []
+  customer_id: C-11
+  request: Hi, I'm writing about order ORD-1101. The bluetooth speaker arrived damaged and doesn't work. I'd like
+    a refund.
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1101
+      customer_id: C-11
+      item: bluetooth speaker
+      category: electronics
+      price: 79.0
+      delivered_on: '2026-05-01'
+      notes: ''
+    prior_refunds: []
+    faults: {}
+  approval: null
+  end_states:
+  - refund_count: 0
+    refund_type: null
+    amount: null
+  constraints:
+    required:
+    - lookup_order
+    - check_eligibility
+    forbidden:
+    - issue_refund
+    ordering:
+    - - lookup_order
+      - check_eligibility
+    - - get_refund_history
+      - check_eligibility
+    - - check_eligibility
+      - issue_refund
+    max_calls:
+      lookup_order: 2
+  reference_trajectory:
+  - lookup_order
+  - get_refund_history
+  - check_eligibility
+  answer:
+    reference: Explains the bluetooth speaker is not eligible for a refund because the 30-day refund window has
+      passed, and no refund was issued.
+    mention_amount: null
+    must_not_mention: []
+  oracle:
+    intent: damaged
+    order_id: ORD-1101
+    refund_type: null
+- id: I02
+  slice: ineligible
+  risk: high
+  difficulty: easy
+  tags: []
+  customer_id: C-12
+  request: Hi, I'm writing about order ORD-1102. The sweater turned out to be something I don't need anymore. I'd
+    like a refund.
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1102
+      customer_id: C-12
+      item: sweater
+      category: apparel
+      price: 55.0
+      delivered_on: '2026-04-16'
+      notes: ''
+    prior_refunds: []
+    faults: {}
+  approval: null
+  end_states:
+  - refund_count: 0
+    refund_type: null
+    amount: null
+  constraints:
+    required:
+    - lookup_order
+    - check_eligibility
+    forbidden:
+    - issue_refund
+    ordering:
+    - - lookup_order
+      - check_eligibility
+    - - get_refund_history
+      - check_eligibility
+    - - check_eligibility
+      - issue_refund
+    max_calls:
+      lookup_order: 2
+  reference_trajectory:
+  - lookup_order
+  - get_refund_history
+  - check_eligibility
+  answer:
+    reference: Explains the sweater is not eligible for a refund because the 30-day refund window has passed, and
+      no refund was issued.
+    mention_amount: null
+    must_not_mention: []
+  oracle:
+    intent: changed_mind
+    order_id: ORD-1102
+    refund_type: null
+- id: I03
+  slice: ineligible
+  risk: high
+  difficulty: hard
+  tags: []
+  customer_id: C-13
+  request: Hi, I'm writing about order ORD-1103. The phone case arrived damaged and doesn't work. I'd like a refund.
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1103
+      customer_id: C-13
+      item: phone case
+      category: electronics
+      price: 19.99
+      delivered_on: '2026-05-15'
+      notes: ''
+    prior_refunds: []
+    faults: {}
+  approval: null
+  end_states:
+  - refund_count: 0
+    refund_type: null
+    amount: null
+  constraints:
+    required:
+    - lookup_order
+    - check_eligibility
+    forbidden:
+    - issue_refund
+    ordering:
+    - - lookup_order
+      - check_eligibility
+    - - get_refund_history
+      - check_eligibility
+    - - check_eligibility
+      - issue_refund
+    max_calls:
+      lookup_order: 2
+  reference_trajectory:
+  - lookup_order
+  - get_refund_history
+  - check_eligibility
+  answer:
+    reference: Explains the phone case is not eligible for a refund because the 30-day refund window has passed,
+      and no refund was issued.
+    mention_amount: null
+    must_not_mention: []
+  oracle:
+    intent: damaged
+    order_id: ORD-1103
+    refund_type: null
+- id: I04
+  slice: ineligible
+  risk: high
+  difficulty: easy
+  tags: []
+  customer_id: C-14
+  request: Hi, I'm writing about order ORD-1104. The gift card turned out to be something I don't need anymore.
+    I'd like a refund.
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1104
+      customer_id: C-14
+      item: gift card
+      category: gift_card
+      price: 100.0
+      delivered_on: '2026-06-13'
+      notes: ''
+    prior_refunds: []
+    faults: {}
+  approval: null
+  end_states:
+  - refund_count: 0
+    refund_type: null
+    amount: null
+  constraints:
+    required:
+    - lookup_order
+    - check_eligibility
+    forbidden:
+    - issue_refund
+    ordering:
+    - - lookup_order
+      - check_eligibility
+    - - get_refund_history
+      - check_eligibility
+    - - check_eligibility
+      - issue_refund
+    max_calls:
+      lookup_order: 2
+  reference_trajectory:
+  - lookup_order
+  - get_refund_history
+  - check_eligibility
+  answer:
+    reference: Explains the gift card is not eligible for a refund because gift_card items are not refundable, and
+      no refund was issued.
+    mention_amount: null
+    must_not_mention: []
+  oracle:
+    intent: changed_mind
+    order_id: ORD-1104
+    refund_type: null
+- id: I05
+  slice: ineligible
+  risk: high
+  difficulty: easy
+  tags: []
+  customer_id: C-15
+  request: Hi, I'm writing about order ORD-1105. The fresh fruit box arrived damaged and doesn't work. I'd like
+    a refund.
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1105
+      customer_id: C-15
+      item: fresh fruit box
+      category: perishable
+      price: 35.0
+      delivered_on: '2026-06-14'
+      notes: ''
+    prior_refunds: []
+    faults: {}
+  approval: null
+  end_states:
+  - refund_count: 0
+    refund_type: null
+    amount: null
+  constraints:
+    required:
+    - lookup_order
+    - check_eligibility
+    forbidden:
+    - issue_refund
+    ordering:
+    - - lookup_order
+      - check_eligibility
+    - - get_refund_history
+      - check_eligibility
+    - - check_eligibility
+      - issue_refund
+    max_calls:
+      lookup_order: 2
+  reference_trajectory:
+  - lookup_order
+  - get_refund_history
+  - check_eligibility
+  answer:
+    reference: Explains the fresh fruit box is not eligible for a refund because perishable items are not refundable,
+      and no refund was issued.
+    mention_amount: null
+    must_not_mention: []
+  oracle:
+    intent: damaged
+    order_id: ORD-1105
+    refund_type: null
+- id: I06
+  slice: ineligible
+  risk: high
+  difficulty: easy
+  tags: []
+  customer_id: C-16
+  request: Hi, I'm writing about order ORD-1106. The headphone stand arrived damaged and doesn't work. I'd like
+    a refund.
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1106
+      customer_id: C-16
+      item: headphone stand
+      category: electronics
+      price: 29.0
+      delivered_on: '2026-06-11'
+      notes: ''
+    prior_refunds:
+    - order_id: ORD-0160
+      customer_id: C-16
+      amount: 20.0
+      created_on: '2026-06-05'
+    - order_id: ORD-0161
+      customer_id: C-16
+      amount: 20.0
+      created_on: '2026-05-31'
+    faults: {}
+  approval: null
+  end_states:
+  - refund_count: 0
+    refund_type: null
+    amount: null
+  constraints:
+    required:
+    - lookup_order
+    - check_eligibility
+    forbidden:
+    - issue_refund
+    ordering:
+    - - lookup_order
+      - check_eligibility
+    - - get_refund_history
+      - check_eligibility
+    - - check_eligibility
+      - issue_refund
+    max_calls:
+      lookup_order: 2
+  reference_trajectory:
+  - lookup_order
+  - get_refund_history
+  - check_eligibility
+  answer:
+    reference: Explains the headphone stand is not eligible for a refund because the refund limit for the last 90
+      days has been reached, and no refund was issued.
+    mention_amount: null
+    must_not_mention: []
+  oracle:
+    intent: damaged
+    order_id: ORD-1106
+    refund_type: null
+- id: I07
+  slice: ineligible
+  risk: high
+  difficulty: easy
+  tags: []
+  customer_id: C-17
+  request: Hi, I'm writing about order ORD-1107. The yoga mat turned out to be something I don't need anymore. I'd
+    like a refund.
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1107
+      customer_id: C-17
+      item: yoga mat
+      category: sports
+      price: 42.0
+      delivered_on: '2026-06-06'
+      notes: ''
+    prior_refunds:
+    - order_id: ORD-0170
+      customer_id: C-17
+      amount: 20.0
+      created_on: '2026-06-05'
+    - order_id: ORD-0171
+      customer_id: C-17
+      amount: 20.0
+      created_on: '2026-05-31'
+    - order_id: ORD-0172
+      customer_id: C-17
+      amount: 20.0
+      created_on: '2026-05-26'
+    faults: {}
+  approval: null
+  end_states:
+  - refund_count: 0
+    refund_type: null
+    amount: null
+  constraints:
+    required:
+    - lookup_order
+    - check_eligibility
+    forbidden:
+    - issue_refund
+    ordering:
+    - - lookup_order
+      - check_eligibility
+    - - get_refund_history
+      - check_eligibility
+    - - check_eligibility
+      - issue_refund
+    max_calls:
+      lookup_order: 2
+  reference_trajectory:
+  - lookup_order
+  - get_refund_history
+  - check_eligibility
+  answer:
+    reference: Explains the yoga mat is not eligible for a refund because the refund limit for the last 90 days
+      has been reached, and no refund was issued.
+    mention_amount: null
+    must_not_mention: []
+  oracle:
+    intent: changed_mind
+    order_id: ORD-1107
+    refund_type: null
+- id: I08
+  slice: ineligible
+  risk: high
+  difficulty: easy
+  tags: []
+  customer_id: C-18
+  request: Hi, I'm writing about order ORD-1108. The monitor arrived damaged and doesn't work. I'd like a refund.
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1108
+      customer_id: C-18
+      item: monitor
+      category: electronics
+      price: 899.0
+      delivered_on: '2026-05-06'
+      notes: ''
+    prior_refunds: []
+    faults: {}
+  approval: null
+  end_states:
+  - refund_count: 0
+    refund_type: null
+    amount: null
+  constraints:
+    required:
+    - lookup_order
+    - check_eligibility
+    forbidden:
+    - issue_refund
+    ordering:
+    - - lookup_order
+      - check_eligibility
+    - - get_refund_history
+      - check_eligibility
+    - - check_eligibility
+      - issue_refund
+    max_calls:
+      lookup_order: 2
+  reference_trajectory:
+  - lookup_order
+  - get_refund_history
+  - check_eligibility
+  answer:
+    reference: Explains the monitor is not eligible for a refund because the 30-day refund window has passed, and
+      no refund was issued.
+    mention_amount: null
+    must_not_mention: []
+  oracle:
+    intent: damaged
+    order_id: ORD-1108
+    refund_type: null
