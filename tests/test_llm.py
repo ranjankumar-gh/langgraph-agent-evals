@@ -1,4 +1,5 @@
 import pytest
+from pydantic import BaseModel
 
 from agent import llm as llm_mod
 from agent.prompts import Classification
@@ -234,6 +235,62 @@ def test_hosted_structured_sends_schema_in_system_prompt_and_parses_prose_reply(
     assert "JSON schema" in seen["system"]
     assert llm.retries == 0
     assert llm._db.execute("SELECT COUNT(*) FROM cache").fetchone()[0] == 1
+
+
+def test_hosted_structured_parses_answer_when_model_echoes_the_schema_first(tmp_path, monkeypatch):
+    """A reply that echoes the JSON schema before giving its answer ("the schema is {...}
+    and my answer is {...}") has two brace-balanced top-level objects; the greedy
+    first-to-last-brace span across both is invalid JSON. structured() must try
+    candidates last-first and succeed on the first attempt against the real answer."""
+    llm = _hosted_llm(tmp_path, monkeypatch)
+    content = (
+        'Sure, the schema is {"type": "object", "properties": {"intent": {"type": "string"}}} '
+        'and my answer is {"intent": "damaged", "order_id": "ORD-1001"}'
+    )
+    monkeypatch.setattr(llm, "_chat", lambda seed, *, reasoning, num_predict: _OneShotChat(content))
+
+    result = llm.structured("sys", "user", Classification, seed=0)
+
+    assert result == Classification(intent="damaged", order_id="ORD-1001")
+    assert llm.retries == 0
+    assert llm.calls == 1
+
+
+def test_hosted_structured_parses_nested_objects_in_a_single_answer(tmp_path, monkeypatch):
+    """A single answer object with a nested object field must parse as a whole, not stop
+    at the first inner closing brace."""
+
+    class _Nested(BaseModel):
+        detail: str
+
+    class _WithNested(BaseModel):
+        intent: str
+        meta: _Nested
+
+    llm = _hosted_llm(tmp_path, monkeypatch)
+    content = '{"intent": "damaged", "meta": {"detail": "arrived broken"}}'
+    monkeypatch.setattr(llm, "_chat", lambda seed, *, reasoning, num_predict: _OneShotChat(content))
+
+    result = llm.structured("sys", "user", _WithNested, seed=0)
+
+    assert result == _WithNested(intent="damaged", meta=_Nested(detail="arrived broken"))
+    assert llm.retries == 0
+
+
+def test_hosted_structured_skips_braces_inside_json_strings(tmp_path, monkeypatch):
+    """Braces that appear inside a JSON string value must not corrupt brace-depth
+    tracking for the surrounding object."""
+    llm = _hosted_llm(tmp_path, monkeypatch)
+    content = (
+        '{"intent": "damaged", "order_id": null, '
+        '"note": "customer used {curly braces} for emphasis"}'
+    )
+    monkeypatch.setattr(llm, "_chat", lambda seed, *, reasoning, num_predict: _OneShotChat(content))
+
+    result = llm.structured("sys", "user", Classification, seed=0)
+
+    assert result == Classification(intent="damaged", order_id=None)
+    assert llm.retries == 0
 
 
 def test_hosted_structured_retries_on_bad_json_then_succeeds(tmp_path, monkeypatch):

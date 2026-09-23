@@ -99,6 +99,7 @@ def test_match_modes(observed, strict, unordered, subset, superset):
         ("Refund of 74.50 issued", 74.5, True),
         ("Your refund is $1 899.00", 1899.0, True),
         ("We'll process a refund of $149.00 shortly", 149.0, True),
+        ("There are 12 9 items in stock, refund pending", 129.0, False),
     ],
 )
 def test_mentions_amount(text, amount, expected):

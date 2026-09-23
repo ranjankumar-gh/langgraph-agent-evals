@@ -11,9 +11,13 @@ tool in 15-25% of gpt-oss judge calls and worse for other models, regardless of 
 mode. So hosted models get structured output a third way: the JSON schema is appended to
 the system prompt, the call is made with reasoning on (so the clean reply lands in
 .content and the chain-of-thought doesn't) and num_predict raised to leave room for both,
-and the reply is parsed by taking the first "{" to the last "}" in the content and
-validating that against the schema. Local models are unaffected - they keep the
-json_schema method with reasoning off, exactly as before.
+and the reply is parsed by scanning it for every brace-balanced top-level "{...}"
+substring (tracking depth, and not counting braces inside JSON string literals), trying
+them last-first, and returning the first one that validates against the schema - a reply
+that echoes the schema before giving its answer ("the schema is {...} and my answer is
+{...}") has two such candidates, and a single first-to-last-brace span across both would
+be invalid JSON. Local models are unaffected - they keep the json_schema method with
+reasoning off, exactly as before.
 
 Ollama Cloud also returns transient `ResponseError` 5xx (Internal Server Error) fairly
 often. So hosted calls (both structured() and text()) get a bounded retry: up to 3
@@ -36,7 +40,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
 import sqlite3
 import time
 import urllib.request
@@ -53,15 +56,11 @@ M = TypeVar("M", bound=BaseModel)
 # RETRY_DELAYS[1] before attempt 3.
 RETRY_DELAYS = (2, 5)
 
-# Matches the first "{" to the last "}" in a hosted model's reply, so a JSON object
-# survives surrounding prose ("Sure! {...} hope that helps").
-_JSON_OBJECT_RE = re.compile(r"\{.*\}", re.DOTALL)
-
 
 class StructuredOutputError(RuntimeError):
     """Raised when structured() gets no parsed result back from the model (seen when a
-    hosted model's reply has no valid JSON object matching the schema, or - on the local
-    json_schema/tool-calling path - the tool is never called)."""
+    hosted model's reply has no JSON object that validates against the schema, or - on
+    the local json_schema/tool-calling path - the tool is never called)."""
 
 
 def _retryable(exc: BaseException) -> bool:
@@ -73,6 +72,53 @@ def _retryable(exc: BaseException) -> bool:
     if isinstance(exc, (httpx.ConnectError, httpx.ReadTimeout, ConnectionError)):
         return True
     return False
+
+
+def _balanced_json_objects(content: str) -> list[str]:
+    """Every brace-balanced top-level "{...}" substring in content, in the order they
+    appear. Braces inside a JSON string literal (respecting \\" escapes) don't count
+    toward depth, so a string value that itself contains "{" or "}" doesn't unbalance the
+    object around it, and a nested object inside an answer stays part of its parent
+    instead of closing it early."""
+    candidates: list[str] = []
+    depth = 0
+    start: int | None = None
+    in_string = False
+    escaped = False
+    for i, ch in enumerate(content):
+        if in_string:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_string = False
+            continue
+        if ch == '"':
+            in_string = True
+        elif ch == "{":
+            if depth == 0:
+                start = i
+            depth += 1
+        elif ch == "}" and depth > 0:
+            depth -= 1
+            if depth == 0 and start is not None:
+                candidates.append(content[start : i + 1])
+                start = None
+    return candidates
+
+
+def _parse_structured_reply(content: str, schema: type[M], model_name: str) -> M:
+    """Try every brace-balanced object in content against schema, last-appearing first
+    (a reply that echoes the schema before its answer puts the real answer last), and
+    return the first that validates. Raises StructuredOutputError (retryable) if none
+    do."""
+    for candidate in reversed(_balanced_json_objects(content)):
+        try:
+            return schema.model_validate_json(candidate)
+        except ValidationError:
+            continue
+    raise StructuredOutputError(f"{model_name} reply had no JSON object matching the schema: {content!r}")
 
 
 class LLM(Protocol):
@@ -246,7 +292,8 @@ class OllamaLLM:
         if cached is not None:
             return schema.model_validate_json(cached)
 
-        last_error: BaseException = StructuredOutputError(f"{self.name} structured() was never attempted")
+        # The loop below always exits from inside itself - by returning on success, or by
+        # raising once attempt 2 (the last) fails - so there is no fall-through case after it.
         for attempt in range(3):
             if attempt > 0:
                 self.retries += 1
@@ -258,12 +305,8 @@ class OllamaLLM:
                     .invoke([("system", schema_system), ("human", user)])
                     .content
                 )
-                match = _JSON_OBJECT_RE.search(content)
-                if match is None:
-                    raise StructuredOutputError(f"{self.name} reply had no JSON object: {content!r}")
-                result = schema.model_validate_json(match.group(0))
+                result = _parse_structured_reply(content, schema, self.name)
             except Exception as exc:
-                last_error = exc
                 if attempt < 2 and _retryable(exc):
                     continue
                 if isinstance(exc, StructuredOutputError):
@@ -272,7 +315,6 @@ class OllamaLLM:
             else:
                 self._store(key, result.model_dump_json())
                 return result
-        raise StructuredOutputError(f"{self.name} structured() failed: {last_error}") from last_error
 
     def text(self, system: str, user: str, *, seed: int) -> str:
         reasoning = True if self._thinking_capable else None
@@ -295,7 +337,8 @@ class OllamaLLM:
         return content
 
     def _text_hosted(self, system: str, user: str, seed: int, *, reasoning: bool | None, num_predict: int) -> str:
-        last_error: BaseException = RuntimeError(f"{self.name} text() was never attempted")
+        # Same shape as _structured_hosted's loop: always exits from inside itself, by
+        # returning on success or re-raising once attempt 2 (the last) fails.
         for attempt in range(3):
             if attempt > 0:
                 self.retries += 1
@@ -308,8 +351,6 @@ class OllamaLLM:
                     .content
                 )
             except Exception as exc:
-                last_error = exc
                 if attempt < 2 and _retryable(exc):
                     continue
                 raise
-        raise last_error

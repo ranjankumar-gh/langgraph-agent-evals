@@ -37,11 +37,15 @@ class AnswerResult:
 # numbers, e.g. "refund of $1,899.00" or "$1 899.00" (used as a thousands
 # separator, like the comma).
 _THIN_SPACES = "   "
-_THOUSANDS_SEP_RE = re.compile(rf"(?<=\d)[{_THIN_SPACES}](?=\d)")
+# Only a thin space that opens a real thousands group - a digit, then exactly three more
+# digits, then a non-digit or the end of the string - counts as a separator. A space with
+# some other digit count around it (e.g. "12 9 items") is unrelated numbers, not a
+# thousands group, and must not be merged.
+_THOUSANDS_SEP_RE = re.compile(rf"(?<=\d)[{_THIN_SPACES}](?=\d{{3}}(?!\d))")
 
 
 def _normalize_spaces(text: str) -> str:
-    # A thin/no-break space directly between two digits is a thousands separator, like the
+    # A thin/no-break space that opens a real thousands group is a separator, like the
     # comma - drop it entirely so "1 899.00" reads as "1899.00".
     text = _THOUSANDS_SEP_RE.sub("", text)
     # Any other occurrence normalises to a regular space.
