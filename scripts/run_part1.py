@@ -25,7 +25,7 @@ from evals.report import render_markdown, summarize, write_transcripts
 from evals.runner import run_case
 from evals.schema import load_cases
 
-POLICY_MODEL = "qwen3:4b"
+POLICY_MODEL = "nemotron-3-nano:30b-cloud"
 JUDGE_MODEL = "gpt-oss:20b-cloud"
 
 
@@ -41,6 +41,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--ids", default=None, help="comma-separated case ids, for smoke runs")
     parser.add_argument("--out", default="results/part-1")
+    parser.add_argument("--policy-model", default=POLICY_MODEL)
     parser.add_argument("--judge-model", default=JUDGE_MODEL)
     parser.add_argument("--allow-dirty", action="store_true")
     parser.add_argument("--summarize-only", action="store_true")
@@ -61,7 +62,7 @@ def main(argv: list[str] | None = None) -> int:
             previous = json.loads(meta_path.read_text())
             if previous["git_commit"] != commit:
                 sys.exit(f"{out} holds runs from {previous['git_commit']}; use a new --out or delete it")
-            if previous["policy_model"]["name"] != POLICY_MODEL:
+            if previous["policy_model"]["name"] != args.policy_model:
                 sys.exit(
                     f"{out} holds runs graded by policy model {previous['policy_model']['name']!r}; "
                     f"use a new --out or delete it"
@@ -82,7 +83,7 @@ def main(argv: list[str] | None = None) -> int:
             wanted = set(args.ids.split(","))
             cases = [c for c in cases if c.id in wanted]
         cases = cases[: args.limit]
-        llm = OllamaLLM(POLICY_MODEL, num_predict=400)
+        llm = OllamaLLM(args.policy_model, num_predict=400)
         judge = OllamaLLM(args.judge_model, num_predict=200)
         started_at = previous["started_at"] if previous else datetime.now(timezone.utc).isoformat(timespec="seconds")
         meta = {

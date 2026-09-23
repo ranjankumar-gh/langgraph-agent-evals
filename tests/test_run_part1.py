@@ -225,3 +225,85 @@ def test_resume_allows_a_fresh_out_with_an_empty_runs_jsonl(tmp_path, monkeypatc
 
     assert result == 0
     assert (out / "metadata.json").exists()
+
+
+def test_policy_model_flag_overrides_the_default(tmp_path, monkeypatch):
+    """--policy-model must actually be used at runtime (constructing OllamaLLM and recorded
+    in metadata.json), not just accepted and ignored."""
+    monkeypatch.setattr(run_part1, "_git", _fake_git)
+    monkeypatch.setattr(run_part1, "OllamaLLM", _FakeOllamaLLM)
+    monkeypatch.setattr(
+        run_part1, "run_case", lambda case, variant, trial, llm, judge: _fake_run_record(case.id, variant, trial)
+    )
+
+    out = tmp_path / "out"
+
+    result = run_part1.main(
+        ["--out", str(out), "--policy-model", "qwen3:4b", "--ids", "H01", "--k", "1"]
+    )
+
+    assert result == 0
+    meta = json.loads((out / "metadata.json").read_text())
+    assert meta["policy_model"]["name"] == "qwen3:4b"
+
+
+def test_resume_guard_compares_against_the_policy_model_flag_not_the_constant(tmp_path, monkeypatch):
+    """The resume guard must check args.policy_model, not the hardcoded POLICY_MODEL constant,
+    so resuming a run made with an overridden --policy-model doesn't spuriously refuse."""
+    monkeypatch.setattr(run_part1, "_git", _fake_git)
+    monkeypatch.setattr(run_part1, "OllamaLLM", _FakeOllamaLLM)
+    monkeypatch.setattr(
+        run_part1, "run_case", lambda case, variant, trial, llm, judge: _fake_run_record(case.id, variant, trial)
+    )
+
+    out = tmp_path / "out"
+    out.mkdir()
+    (out / "metadata.json").write_text(
+        json.dumps(
+            {
+                "git_commit": "abc123",
+                "policy_model": {"name": "qwen3:4b"},
+                "judge_model": {"name": run_part1.JUDGE_MODEL},
+                "started_at": "2026-01-01T00:00:00+00:00",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (out / "runs.jsonl").write_text("", encoding="utf-8")
+
+    result = run_part1.main(
+        ["--out", str(out), "--policy-model", "qwen3:4b", "--ids", "H01", "--k", "1"]
+    )
+
+    assert result == 0
+
+
+def test_resume_still_refuses_when_policy_model_flag_mismatches_recorded_model(tmp_path, monkeypatch):
+    monkeypatch.setattr(run_part1, "_git", _fake_git)
+
+    out = tmp_path / "out"
+    out.mkdir()
+    (out / "metadata.json").write_text(
+        json.dumps(
+            {
+                "git_commit": "abc123",
+                "policy_model": {"name": "qwen3:4b"},
+                "judge_model": {"name": run_part1.JUDGE_MODEL},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (out / "runs.jsonl").write_text("", encoding="utf-8")
+
+    def _boom(*_args, **_kwargs):
+        raise AssertionError("OllamaLLM must not be constructed once the resume guard refuses")
+
+    monkeypatch.setattr(run_part1, "OllamaLLM", _boom)
+
+    with pytest.raises(SystemExit) as excinfo:
+        run_part1.main(["--out", str(out), "--policy-model", "gemma3:4b"])
+
+    message = str(excinfo.value)
+    assert "qwen3:4b" in message
+    assert str(out) in message
+    assert "new --out" in message

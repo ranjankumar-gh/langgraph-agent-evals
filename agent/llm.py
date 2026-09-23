@@ -18,6 +18,11 @@ from pydantic import BaseModel
 M = TypeVar("M", bound=BaseModel)
 
 
+class StructuredOutputError(RuntimeError):
+    """Raised when structured() gets no parsed result back from the model (seen when a
+    hosted model never calls the structured-output tool)."""
+
+
 class LLM(Protocol):
     name: str
 
@@ -55,6 +60,9 @@ class OllamaLLM:
     ) -> None:
         info = ollama_model_info(model, base_url)
         self.name = model
+        # Ollama Cloud models (name ends "-cloud") ignore the json_schema format constraint on
+        # structured output, so structured() picks its with_structured_output method off this.
+        self.hosted = model.endswith("-cloud")
         self.digest = info["digest"]
         # qwen3 thinks by default. On text() we let it think (reasoning=True) so the clean reply
         # lands in .content and the chain-of-thought goes to additional_kwargs instead of being
@@ -81,10 +89,12 @@ class OllamaLLM:
         *,
         reasoning: bool | None,
         num_predict: int,
+        method: str | None = None,
     ) -> str:
-        # reasoning and num_predict are the EFFECTIVE values for this call (which differ between
-        # text() and structured(), and from the constructor default for thinking models' text()
-        # calls) so that a cache entry recorded under old behaviour is never replayed.
+        # reasoning, num_predict and method are the EFFECTIVE values for this call (which differ
+        # between text() and structured(), and from the constructor default for thinking models'
+        # text() calls, and between hosted and local models' structured() calls) so that a cache
+        # entry recorded under old behaviour is never replayed.
         blob = json.dumps(
             [
                 self.name,
@@ -92,6 +102,7 @@ class OllamaLLM:
                 self.temperature,
                 num_predict,
                 reasoning,
+                method,
                 kind,
                 system,
                 user,
@@ -128,8 +139,19 @@ class OllamaLLM:
     def structured(self, system: str, user: str, schema: type[M], *, seed: int) -> M:
         reasoning = False if self._thinking_capable else None
         num_predict = self.num_predict
+        # Ollama Cloud ignores the json_schema format constraint (a raw call with a schema
+        # still returns bare text), so hosted models get structured output via tool calling
+        # instead; local models keep json_schema, which is what's smoke-tested there.
+        method = "function_calling" if self.hosted else "json_schema"
         key = self._key(
-            "structured", system, user, schema.model_json_schema(), seed, reasoning=reasoning, num_predict=num_predict
+            "structured",
+            system,
+            user,
+            schema.model_json_schema(),
+            seed,
+            reasoning=reasoning,
+            num_predict=num_predict,
+            method=method,
         )
         cached = self._lookup(key)
         if cached is not None:
@@ -137,9 +159,11 @@ class OllamaLLM:
         self.calls += 1
         result = (
             self._chat(seed, reasoning=reasoning, num_predict=num_predict)
-            .with_structured_output(schema, method="json_schema")
+            .with_structured_output(schema, method=method)
             .invoke([("system", system), ("human", user)])
         )
+        if result is None:
+            raise StructuredOutputError(f"{self.name} returned no structured output")
         self._store(key, result.model_dump_json())
         return result
 

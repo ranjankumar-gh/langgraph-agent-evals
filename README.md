@@ -4,41 +4,45 @@ Companion code for the guide series **Evaluating LangGraph Agents in Production*
 (https://ranjankumar.in/guides/langgraph-agent-evals).
 
 One refund-processing LangGraph agent, a set of deliberately seeded faults, and an eval
-harness that measures how often each layer of the eval stack is wrong. The agent runs
-on a local Ollama model; the measured run's judge runs on Ollama Cloud through that
-same local Ollama app. Setup and results are filled in as each part's stage lands.
+harness that measures how often each layer of the eval stack is wrong. The measured run
+uses two open-weight models on Ollama Cloud, both reached through the local Ollama app:
+the agent runs on `nemotron-3-nano:30b` (NVIDIA) and the judge on `gpt-oss:20b` (OpenAI)
+— different model families, so the judge is never grading its own family. Setup and
+results are filled in as each part's stage lands.
 
 ## Requirements
 
 - Python 3.11+
 - [uv](https://docs.astral.sh/uv/)
-- [Ollama](https://ollama.com), running locally. The policy model (`qwen3:4b`) always
-  runs locally:
-
-  ```bash
-  ollama pull qwen3:4b
-  ```
-
-- The measured run's judge, `gpt-oss:20b-cloud`, runs on Ollama Cloud rather than on
-  this machine — a 20B model is too slow on CPU-only hardware to grade a full run in a
-  reasonable time. It is still called through the same local Ollama app on
-  `http://localhost:11434`; nothing in this repo talks to a remote endpoint directly,
-  and no API key is needed or stored anywhere in the repo. Sign in once and pull the
-  cloud model tag:
+- [Ollama](https://ollama.com), running locally. Both the agent and the judge run on
+  Ollama Cloud rather than on this machine — a 30B/20B model is too slow on CPU-only
+  hardware to run a full measured run in a reasonable time. Both are still called
+  through the same local Ollama app on `http://localhost:11434`; nothing in this repo
+  talks to a remote endpoint directly, and no API key is needed or stored anywhere in
+  the repo. Sign in once and pull both cloud model tags:
 
   ```bash
   ollama signin
-  ollama pull gpt-oss:20b-cloud
+  ollama pull nemotron-3-nano:30b-cloud gpt-oss:20b-cloud
   ```
 
-  To run everything fully locally instead (different judge, different numbers — see
-  below), pull `gemma3:4b` and pass `--judge-model gemma3:4b` to
-  `scripts.run_part1`:
+  Ollama Cloud ignores the JSON-schema output constraint that local Ollama models
+  honour — a raw structured-output call against a cloud model just returns free text.
+  `agent/llm.py` detects a hosted model (any name ending `-cloud`) and asks for
+  structured output via tool calling instead, which cloud models do support; local
+  models keep the JSON-schema path.
+
+  The harness still runs fully locally (different models, much slower on CPU-only
+  hardware, and different numbers) by pointing both flags at locally pulled models:
 
   ```bash
-  ollama pull gemma3:4b
-  uv run python -m scripts.run_part1 --judge-model gemma3:4b ...
+  ollama pull qwen3:4b gemma3:4b
+  uv run python -m scripts.run_part1 --policy-model qwen3:4b --judge-model gemma3:4b ...
   ```
+
+  Ollama Cloud model tags can be retired; every `metadata.json` records both models'
+  exact names and the run's start/finish dates, so a results directory stays
+  traceable back to what produced it even after a cloud tag is gone.
 
 ## Quickstart
 
@@ -51,10 +55,11 @@ uv run python -m scripts.run_part1 --ids H01,F01,R01 --k 1 --out results/smoke -
 The last command is a small smoke run: one happy refund, one tool failure, and one
 rejected approval, across all six agent variants, one trial each. It writes
 `results/smoke/{metadata.json,runs.jsonl,summary.json,summary.md}` and a handful of
-transcripts. It needs a running Ollama server signed in to Ollama Cloud (for the
-judge) with `qwen3:4b` pulled locally, and takes a few minutes on CPU. Add
-`--judge-model gemma3:4b` (after pulling it) to run the judge locally too, with no
-Ollama Cloud dependency.
+transcripts. It needs a running Ollama server signed in to Ollama Cloud, with
+`nemotron-3-nano:30b-cloud` and `gpt-oss:20b-cloud` pulled, and takes a few minutes.
+Add `--policy-model qwen3:4b --judge-model gemma3:4b` (after pulling both) to run
+everything locally instead, with no Ollama Cloud dependency — much slower on CPU, and
+the numbers won't match the cloud-model run.
 
 ## The agent
 
@@ -105,8 +110,9 @@ Every run of a (case, variant, trial) is graded by three independent check layer
 3. **Answer** (`evals/checks/answer.py`) — what the agent said: a deterministic string
    check (mentions the right amount, avoids forbidden phrases) plus a single-pass LLM
    judge (`gpt-oss:20b-cloud` for the measured run, or `gemma3:4b` for a fully local
-   run — either way, a different model family from the policy model) scoring 1-5
-   against a reference description of the correct outcome.
+   run — either way, a different model family from the policy model, so the judge is
+   never grading its own family) scoring 1-5 against a reference description of the
+   correct outcome.
 
 `evals/report.py` combines these into harnesses that a run either passes or fails:
 `answer_only` (layer 3 alone), `three_artifact` (all three layers, trajectory judged by
@@ -137,23 +143,24 @@ All rates carry Wilson 95% confidence intervals.
   number, so every variant sees the same sampling draw for the same (case, trial) —
   variant B's compute-refund call on case H01 trial 2 uses the same seed as baseline's.
 - **Record/replay cache.** `agent/llm.py`'s `OllamaLLM` keys every call on model name,
-  digest, temperature, `num_predict`, prompt, schema, and seed, and caches the
-  response in a local SQLite file. Re-running an unchanged case replays instead of
-  calling the model, and classification/refund-decision calls are shared across
-  variants of the same case and trial, so `--out` reuse is cheap.
+  digest, temperature, `num_predict`, prompt, schema, structured-output method
+  (`function_calling` for hosted models, `json_schema` for local ones), and seed, and
+  caches the response in a local SQLite file. Re-running an unchanged case replays
+  instead of calling the model, and classification/refund-decision calls are shared
+  across variants of the same case and trial, so `--out` reuse is cheap.
 - **Frozen clock.** Every case's environment fixes "today" at `2026-06-15`
   (`env/fixtures.py`); nothing reads the system clock for policy decisions.
 - **Recorded provenance.** Every `metadata.json` records the git commit, whether the
   tree was dirty, and both models' names, digests, temperatures, and whether each ran
   hosted (`"hosted": true` for a `-cloud` tag) or locally, so a results directory is
   traceable back to the exact code and model weights that produced it.
-- **Cloud models can be retired.** Ollama Cloud tags such as `gpt-oss:20b-cloud` are
-  not guaranteed to stay available indefinitely, unlike a locally pulled model file.
-  Every result therefore also records the judge's name and the run date
-  (`started_at`/`finished_at` in `metadata.json`), so a later reader can tell which
-  judge produced a given number even if that judge tag is gone by the time they read
-  it, and can reproduce with `--judge-model gemma3:4b` if the original judge is no
-  longer reachable.
+- **Cloud models can be retired.** Ollama Cloud tags such as `nemotron-3-nano:30b-cloud`
+  and `gpt-oss:20b-cloud` are not guaranteed to stay available indefinitely, unlike a
+  locally pulled model file. Every result therefore also records both models' names
+  and the run date (`started_at`/`finished_at` in `metadata.json`), so a later reader
+  can tell which agent and judge produced a given number even if those tags are gone
+  by the time they read it, and can reproduce with `--policy-model qwen3:4b
+  --judge-model gemma3:4b` if the originals are no longer reachable.
 - **A changed judge needs a fresh `--out`.** `scripts/run_part1.py` refuses to resume
   into a `--out` directory whose recorded `policy_model`/`judge_model` name doesn't
   match the current run's, so switching `--judge-model` (or the policy model) never

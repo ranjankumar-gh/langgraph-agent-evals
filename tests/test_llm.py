@@ -1,3 +1,5 @@
+import pytest
+
 from agent import llm as llm_mod
 from agent.prompts import Classification
 
@@ -152,3 +154,90 @@ def test_cache_key_does_not_collide_text_and_structured(tmp_path, monkeypatch):
 
     rows = llm._db.execute("SELECT COUNT(*) FROM cache").fetchone()[0]
     assert rows == 2
+
+
+class _MethodRecordingChat:
+    """Stands in for ChatOllama on the structured() path: records which
+    with_structured_output(method=...) it was built with."""
+
+    def __init__(self, seen: dict, result):
+        self._seen = seen
+        self._result = result
+
+    def with_structured_output(self, schema, method):
+        self._seen["method"] = method
+        return self
+
+    def invoke(self, messages):
+        return self._result
+
+
+def test_structured_uses_function_calling_for_hosted_cloud_models(tmp_path, monkeypatch):
+    """A '-cloud' model name marks it hosted; hosted models ignore the json_schema format
+    constraint on Ollama Cloud, so structured() must ask for function_calling instead."""
+    monkeypatch.setattr(
+        llm_mod,
+        "ollama_model_info",
+        lambda model, base_url="": {"digest": "d", "capabilities": ["completion", "tools", "thinking"]},
+    )
+    llm = llm_mod.OllamaLLM("nemotron-3-nano:30b-cloud", cache_path=tmp_path / "cache.sqlite")
+    assert llm.hosted is True
+    seen: dict = {}
+    result = Classification(intent="damaged", order_id="ORD-1001")
+    monkeypatch.setattr(llm, "_chat", lambda seed, *, reasoning, num_predict: _MethodRecordingChat(seen, result))
+
+    out = llm.structured("sys", "user", Classification, seed=0)
+
+    assert seen["method"] == "function_calling"
+    assert out == result
+
+
+def test_structured_uses_json_schema_for_local_models(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        llm_mod, "ollama_model_info", lambda model, base_url="": {"digest": "d", "capabilities": ["completion"]}
+    )
+    llm = llm_mod.OllamaLLM("qwen3:4b", cache_path=tmp_path / "cache.sqlite")
+    assert llm.hosted is False
+    seen: dict = {}
+    result = Classification(intent="damaged", order_id="ORD-1001")
+    monkeypatch.setattr(llm, "_chat", lambda seed, *, reasoning, num_predict: _MethodRecordingChat(seen, result))
+
+    out = llm.structured("sys", "user", Classification, seed=0)
+
+    assert seen["method"] == "json_schema"
+    assert out == result
+
+
+def test_structured_none_result_raises_and_is_not_cached(tmp_path, monkeypatch):
+    """When the model never calls the tool (seen from nemotron acting as judge), structured()
+    must raise a clear StructuredOutputError instead of caching/returning None."""
+    monkeypatch.setattr(
+        llm_mod,
+        "ollama_model_info",
+        lambda model, base_url="": {"digest": "d", "capabilities": ["completion", "tools"]},
+    )
+    llm = llm_mod.OllamaLLM("nemotron-3-nano:30b-cloud", cache_path=tmp_path / "cache.sqlite")
+    seen: dict = {}
+    monkeypatch.setattr(llm, "_chat", lambda seed, *, reasoning, num_predict: _MethodRecordingChat(seen, None))
+
+    with pytest.raises(llm_mod.StructuredOutputError, match="nemotron-3-nano:30b-cloud"):
+        llm.structured("sys", "user", Classification, seed=0)
+
+    rows = llm._db.execute("SELECT COUNT(*) FROM cache").fetchone()[0]
+    assert rows == 0
+
+
+def test_cache_key_differs_by_structured_output_method(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        llm_mod, "ollama_model_info", lambda model, base_url="": {"digest": "d", "capabilities": ["completion"]}
+    )
+    llm = llm_mod.OllamaLLM("qwen3:4b", cache_path=tmp_path / "cache.sqlite")
+
+    json_schema_key = llm._key(
+        "structured", "sys", "user", {}, 0, reasoning=False, num_predict=400, method="json_schema"
+    )
+    function_calling_key = llm._key(
+        "structured", "sys", "user", {}, 0, reasoning=False, num_predict=400, method="function_calling"
+    )
+
+    assert json_schema_key != function_calling_key
