@@ -6,7 +6,7 @@ still appears in the trajectory.
 from __future__ import annotations
 
 import sqlite3
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, timedelta
 from typing import Any
 
@@ -28,6 +28,18 @@ class ToolCall:
     error: str | None = None
 
 
+@dataclass(frozen=True)
+class WorldSnapshot:
+    """Everything outside the checkpoint boundary at one step: the database, the tool
+    counters, and the tool-call log so far. A checkpoint restores the thread; pairing it
+    with one of these restores the world."""
+
+    db: bytes
+    next_refund: int
+    lookups: int
+    log: tuple[ToolCall, ...]
+
+
 @dataclass
 class Tools:
     conn: sqlite3.Connection
@@ -43,6 +55,30 @@ class Tools:
             self.log.append(ToolCall(name, args, ok=False, error="injected fault"))
             raise ToolError(f"{name} failed: upstream service timed out")
         self.log.append(ToolCall(name, args, ok=True))
+
+    def snapshot(self) -> WorldSnapshot:
+        return WorldSnapshot(
+            db=self.conn.serialize(),
+            next_refund=self._next_refund,
+            lookups=self._lookups,
+            log=tuple(replace(c, args=dict(c.args)) for c in self.log),
+        )
+
+    def restored(self, snap: WorldSnapshot) -> "Tools":
+        """A new Tools over a private copy of snap's world, keeping this instance's clock,
+        faults and reprice rule."""
+        conn = sqlite3.connect(":memory:", check_same_thread=False)
+        conn.deserialize(snap.db)
+        conn.row_factory = sqlite3.Row
+        return Tools(
+            conn,
+            self.today,
+            dict(self.faults),
+            log=[replace(c, args=dict(c.args)) for c in snap.log],
+            _next_refund=snap.next_refund,
+            reprice_on_reread=self.reprice_on_reread,
+            _lookups=snap.lookups,
+        )
 
     def lookup_order(self, order_id: str, customer_id: str) -> dict | None:
         self._enter("lookup_order", {"order_id": order_id})
