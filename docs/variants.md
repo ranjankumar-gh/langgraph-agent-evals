@@ -52,6 +52,24 @@ information it already holds: each redundant call is harmless on its own, but
 compounds into avoidable tool cost and latency at scale, and a superficial
 "did it get the right answer" check will never catch it.
 
+## Part 1 addendum: alt_verify, C1, C2 and the changed_order cases
+
+Added after the part-1 run, in response to review of the Part 1 article. None of them changes
+a part-1 variant or case; results/part-1 is untouched.
+
+- **`alt_verify` (valid).** Makes the same re-read as `alt_recheck`, directly before
+  `issue_refund`, but uses the result: if the order's price changed since the first read, it
+  stops and does not refund. `alt_recheck` discards the result, so its re-read only stops the
+  refund when the lookup itself errors. On every part-1 case the two produce identical tool
+  calls and outcomes; they differ only on the `changed_order` cases.
+- **`changed_order` cases (X01-X03).** The order is repriced (a partial cancellation) between
+  the first read and the refund. The correct outcome is no refund yet. Only `alt_verify` reaches
+  it; the baseline never re-reads, and `alt_recheck` re-reads and ignores what it read.
+- **Mutant C1.** One redundant `lookup_order`, inside `check_eligibility` only. It adds exactly
+  one call, so it fits under the per-case `max_calls={"lookup_order": 2}` cap on every path.
+- **Mutant C2.** One redundant `get_refund_history`, inside `check_eligibility`. It is the same
+  cost fault class as C on a different tool, and no rule about `lookup_order` covers it.
+
 ## Sources
 
 Citations for each fault class are given in the Part 1 article.

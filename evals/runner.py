@@ -52,7 +52,8 @@ class RunRecord:
 def run_case(case: Case, variant: str, trial: int, llm: LLM, judge: LLM) -> RunRecord:
     seed = trial
     conn = create_db(case.env)
-    tools = Tools(conn, date.fromisoformat(case.env.today), dict(case.env.faults))
+    tools = Tools(conn, date.fromisoformat(case.env.today), dict(case.env.faults),
+                  reprice_on_reread=case.env.reprice_on_reread)
     fired: list[str] = []
     graph = build_graph(variant, llm, tools, seed=seed, fired=fired, checkpointer=InMemorySaver())
     started = time.perf_counter()

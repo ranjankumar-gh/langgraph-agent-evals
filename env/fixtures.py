@@ -28,3 +28,6 @@ class EnvSpec(BaseModel):
     orders: list[OrderSpec] = Field(default_factory=list)
     prior_refunds: list[PriorRefundSpec] = Field(default_factory=list)
     faults: dict[str, Literal["error"]] = Field(default_factory=dict)
+    # When set, every lookup_order after the first sees the order at this price: a change
+    # (e.g. a partial cancellation) that lands between the first read and the refund.
+    reprice_on_reread: float | None = None

@@ -22,8 +22,8 @@ from agent.state import RefundState
 from agent.tools import ToolError, Tools
 
 APPROVAL_THRESHOLD = 1000.0
-VALID_VARIANTS = ("baseline", "alt_history_early", "alt_recheck")
-MUTANTS = ("A", "B", "C")
+VALID_VARIANTS = ("baseline", "alt_history_early", "alt_recheck", "alt_verify")
+MUTANTS = ("A", "B", "C", "C1", "C2")
 VARIANTS = VALID_VARIANTS + MUTANTS
 
 
@@ -90,6 +90,20 @@ def build_graph(variant: str, llm: LLM, tools: Tools, *, seed: int, fired: list[
     def check_eligibility(state: RefundState) -> dict:
         if variant == "C":
             redundant_lookup(state)
+        if variant == "C1":
+            # One misplaced redundant read, and only one: fits under a lookup_order cap of 2.
+            fired.append("C1:redundant_lookup")
+            try:
+                tools.lookup_order(state["order_id"], state["customer_id"])
+            except ToolError:
+                pass
+        if variant == "C2":
+            # Redundant read of a different tool, one no position rule on lookup_order covers.
+            fired.append("C2:redundant_history")
+            try:
+                tools.get_refund_history(state["customer_id"])
+            except ToolError:
+                pass
         try:
             return {"eligibility": tools.check_eligibility(state["order"], state["prior_refunds"])}
         except ToolError as exc:
@@ -123,6 +137,17 @@ def build_graph(variant: str, llm: LLM, tools: Tools, *, seed: int, fired: list[
                 tools.lookup_order(state["order_id"], state["customer_id"])
             except ToolError as exc:
                 return {"error": str(exc)}
+        if variant == "alt_verify":
+            # Same re-read as alt_recheck, but its result is used: stop if the order changed.
+            try:
+                current = tools.lookup_order(state["order_id"], state["customer_id"])
+            except ToolError as exc:
+                return {"error": str(exc)}
+            before = state["order"]["price"]
+            if current is None or current["price"] != before:
+                now = "missing" if current is None else f"{current['price']:.2f}"
+                return {"error": f"the order changed after it was first read (price {before:.2f} -> {now}); "
+                                  f"refund not issued"}
         try:
             refund_id = tools.issue_refund(
                 state["order_id"], state["customer_id"], state["refund_type"], state["refund_amount"]

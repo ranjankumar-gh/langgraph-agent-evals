@@ -1,0 +1,167 @@
+- id: X01
+  slice: changed_order
+  risk: high
+  difficulty: hard
+  tags:
+  - reprice_on_reread
+  customer_id: C-53
+  request: Hi, I'm writing about order ORD-1701. The bluetooth speaker arrived damaged and doesn't work. I'd like
+    a refund.
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1701
+      customer_id: C-53
+      item: bluetooth speaker
+      category: electronics
+      price: 180.0
+      delivered_on: '2026-06-10'
+      notes: ''
+    prior_refunds: []
+    faults: {}
+    reprice_on_reread: 120.0
+  approval: null
+  end_states:
+  - refund_count: 0
+    refund_type: null
+    amount: null
+  constraints:
+    required:
+    - lookup_order
+    - check_eligibility
+    forbidden:
+    - issue_refund
+    ordering:
+    - - lookup_order
+      - check_eligibility
+    - - get_refund_history
+      - check_eligibility
+    - - check_eligibility
+      - issue_refund
+    max_calls:
+      lookup_order: 2
+  reference_trajectory:
+  - lookup_order
+  - get_refund_history
+  - check_eligibility
+  - lookup_order
+  answer:
+    reference: Explains that the order changed after it was first checked (its price is now 120.00), so no refund
+      has been issued yet, and asks the customer to confirm before a refund is processed.
+    mention_amount: null
+    must_not_mention: []
+  oracle:
+    intent: damaged
+    order_id: ORD-1701
+    refund_type: full
+- id: X02
+  slice: changed_order
+  risk: high
+  difficulty: hard
+  tags:
+  - reprice_on_reread
+  customer_id: C-54
+  request: Hi, I'm writing about order ORD-1702. The cookware set arrived with a part missing. I'd like a refund.
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1702
+      customer_id: C-54
+      item: cookware set
+      category: home
+      price: 90.0
+      delivered_on: '2026-06-06'
+      notes: ''
+    prior_refunds: []
+    faults: {}
+    reprice_on_reread: 60.0
+  approval: null
+  end_states:
+  - refund_count: 0
+    refund_type: null
+    amount: null
+  constraints:
+    required:
+    - lookup_order
+    - check_eligibility
+    forbidden:
+    - issue_refund
+    ordering:
+    - - lookup_order
+      - check_eligibility
+    - - get_refund_history
+      - check_eligibility
+    - - check_eligibility
+      - issue_refund
+    max_calls:
+      lookup_order: 2
+  reference_trajectory:
+  - lookup_order
+  - get_refund_history
+  - check_eligibility
+  - lookup_order
+  answer:
+    reference: Explains that the order changed after it was first checked (its price is now 60.00), so no refund
+      has been issued yet, and asks the customer to confirm before a refund is processed.
+    mention_amount: null
+    must_not_mention: []
+  oracle:
+    intent: missing_part
+    order_id: ORD-1702
+    refund_type: partial
+- id: X03
+  slice: changed_order
+  risk: high
+  difficulty: hard
+  tags:
+  - reprice_on_reread
+  customer_id: C-55
+  request: Hi, I'm writing about order ORD-1703. The hiking boots turned out to be something I don't need anymore.
+    I'd like a refund.
+  env:
+    today: '2026-06-15'
+    orders:
+    - order_id: ORD-1703
+      customer_id: C-55
+      item: hiking boots
+      category: apparel
+      price: 150.0
+      delivered_on: '2026-06-11'
+      notes: ''
+    prior_refunds: []
+    faults: {}
+    reprice_on_reread: 100.0
+  approval: null
+  end_states:
+  - refund_count: 0
+    refund_type: null
+    amount: null
+  constraints:
+    required:
+    - lookup_order
+    - check_eligibility
+    forbidden:
+    - issue_refund
+    ordering:
+    - - lookup_order
+      - check_eligibility
+    - - get_refund_history
+      - check_eligibility
+    - - check_eligibility
+      - issue_refund
+    max_calls:
+      lookup_order: 2
+  reference_trajectory:
+  - lookup_order
+  - get_refund_history
+  - check_eligibility
+  - lookup_order
+  answer:
+    reference: Explains that the order changed after it was first checked (its price is now 100.00), so no refund
+      has been issued yet, and asks the customer to confirm before a refund is processed.
+    mention_amount: null
+    must_not_mention: []
+  oracle:
+    intent: changed_mind
+    order_id: ORD-1703
+    refund_type: store_credit

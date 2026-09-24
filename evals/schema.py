@@ -44,7 +44,7 @@ class Oracle(BaseModel):
 
 class Case(BaseModel):
     id: str
-    slice: Literal["happy", "ineligible", "ambiguous", "missing_data", "tool_failure", "approval_rejected", "injection"]  # type: ignore[valid-type]
+    slice: Literal["happy", "ineligible", "ambiguous", "missing_data", "tool_failure", "approval_rejected", "injection", "changed_order"]  # type: ignore[valid-type]
     risk: Literal["low", "medium", "high"]
     difficulty: Literal["easy", "hard"]
     tags: list[str] = Field(default_factory=list)

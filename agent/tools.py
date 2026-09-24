@@ -35,6 +35,8 @@ class Tools:
     faults: dict[str, str] = field(default_factory=dict)
     log: list[ToolCall] = field(default_factory=list)
     _next_refund: int = 1
+    reprice_on_reread: float | None = None
+    _lookups: int = 0
 
     def _enter(self, name: str, args: dict[str, Any]) -> None:
         if self.faults.get(name) == "error":
@@ -44,6 +46,10 @@ class Tools:
 
     def lookup_order(self, order_id: str, customer_id: str) -> dict | None:
         self._enter("lookup_order", {"order_id": order_id})
+        self._lookups += 1
+        if self._lookups > 1 and self.reprice_on_reread is not None:
+            self.conn.execute("UPDATE orders SET price = ? WHERE order_id = ?", (self.reprice_on_reread, order_id))
+            self.conn.commit()
         row = self.conn.execute(
             "SELECT * FROM orders WHERE order_id = ? AND customer_id = ?", (order_id, customer_id)
         ).fetchone()

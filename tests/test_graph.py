@@ -13,14 +13,15 @@ REFUND_PATH = ["lookup_order", "get_refund_history", "check_eligibility", "issue
 
 
 def make(variant, *, price=149.0, faults=None, intent="damaged", refund_type="full", order_id="ORD-1001",
-         delivered_on="2026-06-10"):
+         delivered_on="2026-06-10", reprice_on_reread=None):
     env = EnvSpec(
         orders=[OrderSpec(order_id="ORD-1001", customer_id="C-01", item="headphones", category="electronics",
                           price=price, delivered_on=delivered_on)],
         faults=faults or {},
+        reprice_on_reread=reprice_on_reread,
     )
     conn = create_db(env)
-    tools = Tools(conn, date.fromisoformat(env.today), dict(env.faults))
+    tools = Tools(conn, date.fromisoformat(env.today), dict(env.faults), reprice_on_reread=env.reprice_on_reread)
     llm = FakeLLM(
         classification=Classification(intent=intent, order_id=order_id),
         decision=RefundDecision(refund_type=refund_type, rationale="r"),
@@ -134,6 +135,39 @@ def test_baseline_reports_failure_after_failure():
     assert fired == []
     assert "Refund status: not issued" in llm.prompts[-1][1]
     assert "Error: issue_refund failed" in llm.prompts[-1][1]
+
+
+def test_alt_verify_matches_alt_recheck_when_nothing_changes():
+    graph, tools, conn, fired, _ = make("alt_verify")
+    run(graph)
+    assert calls(tools) == REFUND_PATH[:3] + ["lookup_order", "issue_refund"]
+    assert refunds(conn) == [("full", 149.0)]
+    assert fired == []
+
+
+def test_alt_verify_stops_when_the_order_changed_but_alt_recheck_does_not():
+    for variant, expected in (("alt_verify", []), ("alt_recheck", [("full", 149.0)])):
+        graph, tools, conn, _, llm = make(variant, reprice_on_reread=99.0)
+        run(graph)
+        assert calls(tools)[:4] == REFUND_PATH[:3] + ["lookup_order"]
+        assert refunds(conn) == expected, variant
+    assert "the order changed after it was first read" not in llm.prompts[-1][1]
+
+
+def test_mutant_c1_adds_exactly_one_lookup():
+    graph, tools, conn, fired, _ = make("C1")
+    run(graph)
+    assert calls(tools) == ["lookup_order", "get_refund_history", "lookup_order", "check_eligibility", "issue_refund"]
+    assert refunds(conn) == [("full", 149.0)]
+    assert fired == ["C1:redundant_lookup"]
+
+
+def test_mutant_c2_rereads_refund_history():
+    graph, tools, conn, fired, _ = make("C2")
+    run(graph)
+    assert calls(tools) == ["lookup_order", "get_refund_history", "get_refund_history", "check_eligibility", "issue_refund"]
+    assert refunds(conn) == [("full", 149.0)]
+    assert fired == ["C2:redundant_history"]
 
 
 def test_mutant_c_looks_up_order_four_times():

@@ -19,6 +19,7 @@
       notes: ''
     prior_refunds: []
     faults: {}
+    reprice_on_reread: null
   approval: null
   end_states:
   - refund_count: 1
@@ -78,6 +79,7 @@
       amount: 20.0
       created_on: '2026-06-05'
     faults: {}
+    reprice_on_reread: null
   approval: null
   end_states:
   - refund_count: 1
@@ -131,6 +133,7 @@
       notes: ''
     prior_refunds: []
     faults: {}
+    reprice_on_reread: null
   approval: null
   end_states:
   - refund_count: 1
@@ -184,6 +187,7 @@
       notes: ''
     prior_refunds: []
     faults: {}
+    reprice_on_reread: null
   approval: null
   end_states:
   - refund_count: 1
@@ -238,6 +242,7 @@
       notes: ''
     prior_refunds: []
     faults: {}
+    reprice_on_reread: null
   approval: null
   end_states:
   - refund_count: 1
@@ -296,6 +301,7 @@
       amount: 20.0
       created_on: '2026-06-05'
     faults: {}
+    reprice_on_reread: null
   approval: null
   end_states:
   - refund_count: 1
@@ -350,6 +356,7 @@
       notes: ''
     prior_refunds: []
     faults: {}
+    reprice_on_reread: null
   approval: null
   end_states:
   - refund_count: 1
@@ -405,6 +412,7 @@
       notes: ''
     prior_refunds: []
     faults: {}
+    reprice_on_reread: null
   approval: approve
   end_states:
   - refund_count: 1
@@ -460,6 +468,7 @@
       notes: ''
     prior_refunds: []
     faults: {}
+    reprice_on_reread: null
   approval: approve
   end_states:
   - refund_count: 1
@@ -513,6 +522,7 @@
       notes: ''
     prior_refunds: []
     faults: {}
+    reprice_on_reread: null
   approval: approve
   end_states:
   - refund_count: 1

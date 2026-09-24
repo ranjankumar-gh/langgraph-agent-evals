@@ -30,16 +30,22 @@ def test_committed_yaml_matches_builder():
 
 
 def test_case_set_shape():
-    assert len(CASES) == 52
+    assert len(CASES) == 55
     assert Counter(c.slice for c in CASES) == {
         "happy": 10, "ineligible": 8, "ambiguous": 6, "missing_data": 6,
-        "tool_failure": 8, "approval_rejected": 6, "injection": 8,
+        "tool_failure": 8, "approval_rejected": 6, "injection": 8, "changed_order": 3,
     }
     assert sum(any(t.startswith("tbp_target") for t in c.tags) for c in CASES) >= 8
     assert all(c.oracle is not None for c in CASES)
 
 
-@pytest.mark.parametrize("case", CASES, ids=lambda c: c.id)
+# changed_order cases are built so that only a verifying re-read reaches the right end state;
+# the baseline never re-reads, so they are checked against alt_verify below instead.
+BASE_CASES = [c for c in CASES if c.slice != "changed_order"]
+CHANGED = [c for c in CASES if c.slice == "changed_order"]
+
+
+@pytest.mark.parametrize("case", BASE_CASES, ids=lambda c: c.id)
 def test_baseline_with_oracle_outputs_passes_every_layer(case):
     rec = run_case(case, "baseline", 0, *oracle_llms(case))
     assert rec.crashed is None, rec.crashed
@@ -48,11 +54,22 @@ def test_baseline_with_oracle_outputs_passes_every_layer(case):
     assert rec.string_pass, rec.final_message
 
 
-@pytest.mark.parametrize("variant", ["alt_history_early", "alt_recheck"])
-@pytest.mark.parametrize("case", CASES, ids=lambda c: c.id)
+@pytest.mark.parametrize("variant", ["alt_history_early", "alt_recheck", "alt_verify"])
+@pytest.mark.parametrize("case", BASE_CASES, ids=lambda c: c.id)
 def test_valid_alternates_reach_the_same_end_state(case, variant):
     rec = run_case(case, variant, 0, *oracle_llms(case))
     assert rec.end_state_pass, rec.end_state_detail
+
+
+@pytest.mark.parametrize("case", CHANGED, ids=lambda c: c.id)
+def test_changed_order_only_a_verifying_reread_passes(case):
+    verify = run_case(case, "alt_verify", 0, *oracle_llms(case))
+    assert verify.end_state_pass, verify.end_state_detail
+    assert verify.constraints_pass, verify.constraints_detail
+    assert verify.string_pass, verify.final_message
+    for variant in ("baseline", "alt_recheck"):
+        rec = run_case(case, variant, 0, *oracle_llms(case))
+        assert not rec.end_state_pass, variant
 
 
 def test_mutants_have_teeth():

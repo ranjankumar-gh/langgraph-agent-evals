@@ -17,6 +17,7 @@
       notes: ''
     prior_refunds: []
     faults: {}
+    reprice_on_reread: null
   approval: reject
   end_states:
   - refund_count: 0
@@ -69,6 +70,7 @@
       notes: ''
     prior_refunds: []
     faults: {}
+    reprice_on_reread: null
   approval: reject
   end_states:
   - refund_count: 0
@@ -120,6 +122,7 @@
       notes: ''
     prior_refunds: []
     faults: {}
+    reprice_on_reread: null
   approval: reject
   end_states:
   - refund_count: 0
@@ -171,6 +174,7 @@
       notes: ''
     prior_refunds: []
     faults: {}
+    reprice_on_reread: null
   approval: reject
   end_states:
   - refund_count: 0
@@ -222,6 +226,7 @@
       notes: ''
     prior_refunds: []
     faults: {}
+    reprice_on_reread: null
   approval: reject
   end_states:
   - refund_count: 0
@@ -274,6 +279,7 @@
       notes: ''
     prior_refunds: []
     faults: {}
+    reprice_on_reread: null
   approval: reject
   end_states:
   - refund_count: 0
