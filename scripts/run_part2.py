@@ -11,7 +11,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import platform
+import shutil
 import sys
 from datetime import datetime, timezone
 from importlib.metadata import version
@@ -59,7 +61,16 @@ def _load_done(runs_path: Path, per_group: int) -> set[tuple[str, int]]:
             partial += 1
 
     if partial or unparseable:
-        runs_path.write_text("".join(line + "\n" for line in kept_lines), encoding="utf-8")
+        # Atomic rewrite: back up the original, write the kept lines to a temp file in the same
+        # directory, then rename it onto runs.jsonl. A crash mid-rewrite leaves either the
+        # untouched original or a complete temp file behind, never a half-written runs.jsonl -
+        # and the .bak is kept so a rewrite that dropped something it shouldn't have is
+        # recoverable.
+        bak_path = runs_path.with_name(runs_path.name + ".bak")
+        shutil.copyfile(runs_path, bak_path)
+        tmp_path = runs_path.with_name(runs_path.name + ".tmp")
+        tmp_path.write_text("".join(line + "\n" for line in kept_lines), encoding="utf-8")
+        os.replace(tmp_path, runs_path)
         print(
             f"dropped {partial} partial group(s) and {unparseable} unparseable line(s) from "
             f"runs.jsonl; they will be re-run",
@@ -96,16 +107,21 @@ def main(argv: list[str] | None = None) -> int:
         commit = _git("rev-parse", "HEAD")
         dirty = bool(_git("status", "--porcelain", "--", "agent", "env", "evals"))
         previous = guard(out, commit=commit, dirty=dirty, allow_dirty=args.allow_dirty,
-                         policy_model=args.policy_model, judge_model=args.judge_model)
+                         policy_model=args.policy_model, judge_model=args.judge_model, changes=changes)
         cases = load_cases(Path(args.cases))
         if args.ids:
             wanted = set(args.ids.split(","))
             cases = [c for c in cases if c.id in wanted]
         cases = cases[: args.limit]
+        # F1: every non-baseline namespace is scoped to this --out at this commit, so a
+        # different --out (e.g. a smoke run) or a different commit (a re-run after a fix)
+        # never replays this run's draws, and resuming the SAME --out at the SAME commit
+        # reuses the same tag and correctly replays its own prior draws.
+        tag = f"{out.name}-{commit[:7]}"
         llms = {
             ns: ArmLLMs(OllamaLLM(args.policy_model, num_predict=400, namespace=ns),
                         OllamaLLM(args.judge_model, num_predict=200, namespace=ns))
-            for ns in namespaces_for(changes)
+            for ns in namespaces_for(changes, tag)
         }
         any_llms = next(iter(llms.values()))
         started_at = previous["started_at"] if previous else datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -124,6 +140,7 @@ def main(argv: list[str] | None = None) -> int:
             "changes": changes,
             "namespaces": list(llms),
             "n_cases": len(cases),
+            "run_tag": tag,
         }
         meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
         done = _load_done(runs_path, 1 + 3 * len(changes))
@@ -132,7 +149,14 @@ def main(argv: list[str] | None = None) -> int:
                 for case in cases:
                     if (case.id, trial) in done:
                         continue
-                    rows = run_group(case, trial, changes, llms)
+                    try:
+                        rows = run_group(case, trial, changes, llms, tag=tag)
+                    except Exception as exc:
+                        # M3: a group-level crash (not caught inside run_group itself) must not
+                        # abort the whole measured run. No rows are written for this group, so
+                        # it is retried whole on resume.
+                        print(f"GROUP-ERROR {case.id} t{trial}: {type(exc).__name__}: {exc}", file=sys.stderr, flush=True)
+                        continue
                     fh.write("".join(json.dumps(r) + "\n" for r in rows))  # one write per group
                     fh.flush()
                     crashed = sum(bool(r.get("crashed")) for r in rows)

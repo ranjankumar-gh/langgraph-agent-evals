@@ -29,7 +29,7 @@ def _setup(monkeypatch, commit="abc123"):
 
     groups = []
 
-    def fake_group(case, trial, changes, llms):
+    def fake_group(case, trial, changes, llms, tag=""):
         groups.append((case.id, trial))
         return [{"arm": "baseline", "change": "baseline", "case_id": case.id, "trial": trial}] + [
             {"arm": arm, "change": ch, "case_id": case.id, "trial": trial} for ch in changes for arm in ("full", "fork", "fork_naive")
@@ -58,7 +58,10 @@ def test_run_part2_resumes_whole_groups(tmp_path, monkeypatch):
 
     meta = json.loads((out / "metadata.json").read_text())
     assert meta["changes"] == ["baseline", "D", "E"]
-    assert meta["namespaces"] == ["", "p2-fork-D", "p2-fork-baseline", "p2-full-D", "p2-full-baseline"]
+    assert meta["run_tag"] == "p2-abc123"
+    assert meta["namespaces"] == [
+        "", "p2-fork-D@p2-abc123", "p2-fork-baseline@p2-abc123", "p2-full-D@p2-abc123", "p2-full-baseline@p2-abc123",
+    ]
 
 
 def test_run_part2_refuses_a_different_commit(tmp_path, monkeypatch):
@@ -127,3 +130,44 @@ def test_run_part2_reruns_only_partial_groups_and_drops_torn_lines(tmp_path, mon
         key = (row["case_id"], row["trial"])
         counts[key] = counts.get(key, 0) + 1
     assert counts == {("H01", 0): per_group, ("I01", 0): per_group}
+
+    # F2: the atomic rewrite leaves a .bak of the pre-rewrite runs.jsonl behind.
+    assert (out / "runs.jsonl.bak").exists()
+    assert not (out / "runs.jsonl.tmp").exists()
+
+
+def test_run_part2_refuses_a_different_changes_and_leaves_runs_jsonl_untouched(tmp_path, monkeypatch):
+    _setup(monkeypatch)
+    out = tmp_path / "p2"
+    run_part2.main(["--ids", "H01", "--k", "1", "--out", str(out), "--changes", "baseline,D"])
+    before = (out / "runs.jsonl").read_bytes()
+
+    _setup(monkeypatch)
+    with pytest.raises(SystemExit) as excinfo:
+        run_part2.main(["--ids", "H01", "--k", "1", "--out", str(out), "--changes", "baseline,E"])
+    assert "['baseline', 'D']" in str(excinfo.value) or "baseline" in str(excinfo.value)
+
+    after = (out / "runs.jsonl").read_bytes()
+    assert after == before  # byte-identical: the refusal happened before any write
+
+
+def test_run_part2_group_error_is_logged_and_the_run_continues(tmp_path, monkeypatch, capsys):
+    groups = _setup(monkeypatch)
+    real_group = run_part2.run_group
+
+    def flaky_group(case, trial, changes, llms, tag=""):
+        if case.id == "H01":
+            raise RuntimeError("boom")
+        return real_group(case, trial, changes, llms, tag=tag)
+
+    monkeypatch.setattr(run_part2, "run_group", flaky_group)
+    out = tmp_path / "p2"
+    assert run_part2.main(["--ids", "H01,I01", "--k", "1", "--out", str(out)]) == 0
+
+    err = capsys.readouterr().err
+    assert "GROUP-ERROR H01 t0: RuntimeError: boom" in err
+
+    rows = [json.loads(line) for line in (out / "runs.jsonl").read_text(encoding="utf-8").splitlines()]
+    case_ids = {r["case_id"] for r in rows}
+    assert "H01" not in case_ids  # the failing group wrote nothing
+    assert "I01" in case_ids

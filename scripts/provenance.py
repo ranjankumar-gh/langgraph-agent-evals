@@ -10,8 +10,14 @@ import sys
 from pathlib import Path
 
 
-def guard(out: Path, *, commit: str, dirty: bool, allow_dirty: bool, policy_model: str, judge_model: str) -> dict | None:
-    """Return the previous metadata.json when resuming into `out`, else None; exit on any conflict."""
+def guard(out: Path, *, commit: str, dirty: bool, allow_dirty: bool, policy_model: str, judge_model: str,
+          changes: list[str] | None = None) -> dict | None:
+    """Return the previous metadata.json when resuming into `out`, else None; exit on any conflict.
+
+    `changes` is optional and only checked when given and the previous metadata records its own
+    "changes" list (run_part1 never passes it, so its behaviour is unchanged): a resume at a
+    different --changes would otherwise silently wipe runs.jsonl's provenance for the changes
+    already recorded there, so it is refused instead."""
     runs_path = out / "runs.jsonl"
     meta_path = out / "metadata.json"
     if dirty and not allow_dirty:
@@ -31,6 +37,8 @@ def guard(out: Path, *, commit: str, dirty: bool, allow_dirty: bool, policy_mode
                 f"{out} holds runs graded by judge model {previous['judge_model']['name']!r}; "
                 f"use a new --out or delete it"
             )
+        if changes is not None and "changes" in previous and previous["changes"] != changes:
+            sys.exit(f"{out} holds runs for changes {previous['changes']}; use a new --out or delete it")
     elif runs_path.exists() and runs_path.read_text(encoding="utf-8").strip():
         sys.exit(
             f"{out} holds runs in runs.jsonl but no metadata.json; provenance unknown; "

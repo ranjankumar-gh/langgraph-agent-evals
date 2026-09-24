@@ -43,23 +43,35 @@ class ArmLLMs:
     judge: LLM
 
 
-def namespace(arm: str, change: str) -> str:
-    """The cache namespace an arm draws from.
+def namespace(arm: str, change: str, tag: str = "") -> str:
+    """The cache namespace an arm draws from, scoped to one measured run.
 
     The baseline keeps the un-namespaced cache, so it replays Part 1's draws where they
-    exist. Every full rerun and every fork draws fresh. E shares D's namespaces, so on every
+    exist - this is deliberate: the no-op control measures drift, and is unaffected by
+    `tag`. Every full rerun and every fork draws fresh. E shares D's namespaces, so on every
     path where E behaves like D it replays D's draws, and any E-versus-D difference comes
-    from the routing change alone. fork_naive shares its change's fork namespace, so the
-    naive and the paired fork see the same compute_refund decision and differ only in the
-    world."""
+    from the routing change alone. fork_naive shares its change's fork namespace, so it
+    starts from the same cached draws fork would - it does not thereby guarantee the same
+    compute_refund decision, since a hosted model's sampling can still diverge them (see
+    evals/report_part2.py: wrong_verdicts pairs only rows whose decision actually agreed).
+
+    `tag` (typically f"{out.name}-{commit[:7]}", set once per measured run by
+    scripts/run_part2.py) is appended as "@{tag}" when non-empty, so a smoke run's draws
+    (under a smoke --out) are never replayed by the measured run, and any void-and-rerun of
+    the measured run at a fresh --out or commit draws fresh instead of replaying a stale
+    namespace's cache entries. Resuming the same --out at the same commit reuses the same
+    tag, so it correctly replays its own prior draws."""
     if arm == "baseline":
         return ""
     family = "D" if change == "E" else change
-    return f"p2-{'fork' if arm.startswith('fork') else 'full'}-{family}"
+    base = f"p2-{'fork' if arm.startswith('fork') else 'full'}-{family}"
+    return f"{base}@{tag}" if tag else base
 
 
-def namespaces_for(changes: list[str]) -> list[str]:
-    return sorted({namespace("baseline", "baseline")} | {namespace(a, c) for c in changes for a in ("full", "fork")})
+def namespaces_for(changes: list[str], tag: str = "") -> list[str]:
+    return sorted(
+        {namespace("baseline", "baseline", tag)} | {namespace(a, c, tag) for c in changes for a in ("full", "fork")}
+    )
 
 
 def _usage(llms: ArmLLMs) -> tuple[dict, dict]:
@@ -96,6 +108,11 @@ def _fork(case: Case, change: str, trial: int, arm: str, fork_point, prefix: lis
         values, forked = fork_run(graph, fork_point, approval=case.approval)
         nodes += forked
         final = final_message(values)
+        # F3: the compute_refund decision this arm actually made. Absent (None) if the fork
+        # crashed before producing values - wrong_verdicts() then excludes the pair, since a
+        # verdict difference without a matching decision could come from the decision, not the
+        # world.
+        meta["decision"] = {"refund_type": values.get("refund_type"), "refund_amount": values.get("refund_amount")}
     except Exception as exc:  # a GraphRecursionError under the carried budget is a result, not a harness bug
         crashed = f"{type(exc).__name__}: {exc}"
     rec = grade_run(case, change, trial, conn=tools.conn, tools=tools, nodes=nodes, final=final,
@@ -103,10 +120,10 @@ def _fork(case: Case, change: str, trial: int, arm: str, fork_point, prefix: lis
     return _row(arm, change, rec, cost=_cost(llms, before), fork=meta)
 
 
-def run_group(case: Case, trial: int, changes: list[str], llms: dict[str, ArmLLMs]) -> list[dict]:
+def run_group(case: Case, trial: int, changes: list[str], llms: dict[str, ArmLLMs], tag: str = "") -> list[dict]:
     thread_id = f"{case.id}:{trial}"
     saver = InMemorySaver()
-    base_llms = llms[namespace("baseline", "baseline")]
+    base_llms = llms[namespace("baseline", "baseline", tag)]
     tools = _fresh_tools(case)
     fired: list[str] = []
     graph = build_graph("baseline", base_llms.policy, tools, seed=trial, fired=fired, checkpointer=saver)
@@ -121,13 +138,22 @@ def run_group(case: Case, trial: int, changes: list[str], llms: dict[str, ArmLLM
     base = grade_run(case, "baseline", trial, conn=tools.conn, tools=tools,
                      nodes=recorded.nodes if recorded else [], final=final_message(recorded.values) if recorded else "",
                      fired=fired, crashed=crashed, judge=base_llms.judge, started=started)
-    rows = [_row("baseline", "baseline", base, cost=_cost(base_llms, before))]
+    base_row = _row("baseline", "baseline", base, cost=_cost(base_llms, before))
+    base_row["exec_order"] = 0  # F5: baseline always executes first
+    rows = [base_row]
 
     hist = history(graph, thread_id) if recorded else []  # before any fork adds branches
     left_behind = tools.snapshot()
+    # F5: alternate which arm runs first so a prefix cache serving the byte-identical compute
+    # prompt doesn't systematically favour one arm's tokens/latency. fork_naive must still run
+    # right after fork (it replays fork's compute draw), so the only two valid orders are
+    # full-first and fork-first.
+    flip = (trial + sum(map(ord, case.id))) % 2
+    arm_order = ("full", "fork", "fork_naive") if flip == 0 else ("fork", "fork_naive", "full")
+    exec_order = 1
     for change in changes:
-        rows.append(_full(case, change, trial, llms[namespace("full", change)]))
-        fork_llms = llms[namespace("fork", change)]
+        full_llms = llms[namespace("full", change, tag)]
+        fork_llms = llms[namespace("fork", change, tag)]
         fork_point = find_fork_point(hist, CHANGED_NODE[change])
         if recorded:
             routing_ok, routing_detail = check_routing(hist, make_routers(change, []), until=fork_point)
@@ -136,16 +162,22 @@ def run_group(case: Case, trial: int, changes: list[str], llms: dict[str, ArmLLM
         step = fork_point.metadata["step"] if fork_point else None
         meta = {"fork_point_step": step, "inherited": fork_point is None, "routing_ok": routing_ok,
                 "routing_detail": routing_detail,
-                "carried_limit": carried_limit(RECURSION_LIMIT, step) if fork_point else None}
-        for arm in ("fork", "fork_naive"):
-            if fork_point is None:
+                "carried_limit": carried_limit(RECURSION_LIMIT, step) if fork_point else None,
+                "decision": None, "baseline_crashed": crashed is not None}
+        produced: dict[str, dict] = {}
+        for arm in arm_order:
+            if arm == "full":
+                produced["full"] = _full(case, change, trial, full_llms)
+            elif fork_point is None:
                 inherited = replace(base, variant=change, elapsed_s=0.0)
-                rows.append(_row(arm, change, inherited, cost={"policy": dict(_ZERO), "judge": dict(_ZERO)}, fork=dict(meta)))
-                continue
-            if arm == "fork":
-                world = recorded.snapshots[fork_point.config["configurable"]["checkpoint_id"]]
+                produced[arm] = _row(arm, change, inherited, cost={"policy": dict(_ZERO), "judge": dict(_ZERO)},
+                                     fork=dict(meta))
             else:
-                world = left_behind
-            rows.append(_fork(case, change, trial, arm, fork_point, recorded.nodes[:step], tools.restored(world),
-                              saver, fork_llms, dict(meta)))
+                world = (recorded.snapshots[fork_point.config["configurable"]["checkpoint_id"]]
+                         if arm == "fork" else left_behind)
+                produced[arm] = _fork(case, change, trial, arm, fork_point, recorded.nodes[:step],
+                                      tools.restored(world), saver, fork_llms, dict(meta))
+            produced[arm]["exec_order"] = exec_order
+            exec_order += 1
+        rows += [produced["full"], produced["fork"], produced["fork_naive"]]  # emitted order is fixed
     return rows

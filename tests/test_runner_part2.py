@@ -37,7 +37,7 @@ APPROVAL = Case.model_validate({
 })
 
 
-def arm_llms(changes, reply="Your full refund of 149.00 has been issued.", crash_agent=False):
+def arm_llms(changes, reply="Your full refund of 149.00 has been issued.", crash_agent=False, tag=""):
     def agent():
         llm = FakeLLM(classification=Classification(intent="damaged", order_id="ORD-1001"),
                       decision=RefundDecision(refund_type="full", rationale="broken"), reply=reply)
@@ -45,7 +45,8 @@ def arm_llms(changes, reply="Your full refund of 149.00 has been issued.", crash
             llm.responses = []
         return llm
 
-    return {ns: ArmLLMs(agent(), FakeLLM(verdict=JudgeVerdict(score=5, rationale="ok"))) for ns in namespaces_for(changes)}
+    return {ns: ArmLLMs(agent(), FakeLLM(verdict=JudgeVerdict(score=5, rationale="ok")))
+            for ns in namespaces_for(changes, tag)}
 
 
 def by(rows, arm, change):
@@ -58,6 +59,17 @@ def test_namespaces_share_d_draws_with_e_and_fork_draws_with_naive():
     assert namespace("full", "D") == namespace("full", "E") == "p2-full-D"
     assert namespace("fork", "E") == namespace("fork_naive", "D") == "p2-fork-D"
     assert namespaces_for(["baseline", "D", "E"]) == ["", "p2-fork-D", "p2-fork-baseline", "p2-full-D", "p2-full-baseline"]
+
+
+def test_tag_scopes_every_non_baseline_namespace_and_leaves_baseline_untagged():
+    assert namespace("baseline", "baseline", "p2-abc1234") == ""
+    assert namespace("full", "D", "p2-abc1234") == "p2-full-D@p2-abc1234"
+    assert namespace("fork", "E", "p2-abc1234") == "p2-fork-D@p2-abc1234"
+    tagged = namespaces_for(["baseline", "D", "E"], "p2-abc1234")
+    untagged = namespaces_for(["baseline", "D", "E"])
+    assert tagged[0] == "" == untagged[0]  # baseline stays untagged
+    assert all(t.endswith("@p2-abc1234") for t in tagged[1:])
+    assert len(tagged) == len(untagged)
 
 
 def test_group_emits_a_baseline_row_then_three_rows_per_change():
@@ -121,3 +133,41 @@ def test_baseline_crash_still_emits_every_row():
     assert by(rows, "baseline", "baseline")["crashed"].startswith("AssertionError")
     fork = by(rows, "fork", "D")
     assert fork["fork"]["inherited"] is True and fork["fork"]["routing_detail"] == "baseline crashed"
+    assert fork["fork"]["baseline_crashed"] is True
+    assert by(rows, "fork_naive", "D")["fork"]["baseline_crashed"] is True
+
+
+def test_a_fresh_tag_runs_with_its_own_namespaces():
+    tag = "p2-smoke-abc1234"
+    rows = run_group(ELIGIBLE, 0, ["D"], arm_llms(["D"], tag=tag), tag=tag)
+    assert by(rows, "fork", "D")["end_state_pass"] is True  # ran fine on the tagged llms dict
+
+
+def test_paired_fork_decision_is_recorded_and_none_on_crash():
+    rows = run_group(ELIGIBLE, 0, ["D"], arm_llms(["D"]))
+    fork = by(rows, "fork", "D")
+    assert fork["fork"]["decision"] == {"refund_type": "full", "refund_amount": 149.0}
+
+    crashed_rows = run_group(ELIGIBLE, 0, ["D"], arm_llms(["D"], crash_agent=True))
+    # baseline crashed, so both fork arms are inherited and never ran: decision stays None.
+    assert by(crashed_rows, "fork", "D")["fork"]["decision"] is None
+    assert by(crashed_rows, "fork_naive", "D")["fork"]["decision"] is None
+
+
+def test_exec_order_alternates_full_first_or_fork_first_by_case_and_trial():
+    # sum(ord("T01")) + trial(0) = 181 -> odd -> fork-first order.
+    rows = run_group(ELIGIBLE, 0, ["D"], arm_llms(["D"]))
+    assert by(rows, "baseline", "baseline")["exec_order"] == 0
+    assert by(rows, "fork", "D")["exec_order"] == 1
+    assert by(rows, "fork_naive", "D")["exec_order"] == 2
+    assert by(rows, "full", "D")["exec_order"] == 3
+    # emitted row order is unaffected by execution order.
+    assert [(r["arm"], r["change"]) for r in rows] == [
+        ("baseline", "baseline"), ("full", "D"), ("fork", "D"), ("fork_naive", "D"),
+    ]
+
+    # sum(ord("T01")) + trial(1) = 182 -> even -> full-first order.
+    rows2 = run_group(ELIGIBLE, 1, ["D"], arm_llms(["D"]))
+    assert by(rows2, "full", "D")["exec_order"] == 1
+    assert by(rows2, "fork", "D")["exec_order"] == 2
+    assert by(rows2, "fork_naive", "D")["exec_order"] == 3
