@@ -27,3 +27,8 @@ recorded runs are summarised or described.
   identical to `cc1b6f8`), and docstrings are
   not part of any cache key, so every cached entry and every recorded run is
   unaffected.
+- **Offline analyses added (2026-09-24).** `direction-table.md` and
+  `position-rule-regrade.md` were generated from this directory's unchanged
+  `runs.jsonl` by `scripts/direction_table.py` and `scripts/regrade_position_rule.py`
+  (commit `55b34b3` and later). They call no model. `runs.jsonl`, `metadata.json` and
+  `summary.*` are untouched.

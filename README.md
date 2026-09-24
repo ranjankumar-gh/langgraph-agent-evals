@@ -408,3 +408,41 @@ fail): mutant A —
 (skips `check_eligibility` before `issue_refund`); mutant C —
 [`results/part-1/transcripts/trajectory-blind-A04-C-t0.md`](results/part-1/transcripts/trajectory-blind-A04-C-t0.md)
 (`lookup_order` called 4 times, over the max-2 limit).
+
+## Part 1 addendum: fresh faults for the fitted rules
+
+Added after review of the Part 1 article, and measured at commit `55b34b3` (k=3, 55 cases x
+9 variants = 1485 runs, 0 crashed, 0 grading errors) in
+[`results/part-1-addendum/`](results/part-1-addendum/). The run replays the part-1 cache: all
+936 part-1 (case, variant, trial) rows reproduce identically, and only 36 policy and 18 judge
+calls were live. New variants and cases are described in [`docs/variants.md`](docs/variants.md):
+`alt_verify` (a re-read that stops the refund if the order changed), mutants `C1` (one misplaced
+`lookup_order`) and `C2` (one redundant `get_refund_history`), and three `changed_order` cases
+where the order is repriced between the first read and the refund.
+
+**A re-read that ignores its result is decorative.** On the `changed_order` cases, `alt_verify`
+reached the correct end state (no refund yet) in 9 of 9 runs; `alt_recheck`, which makes the same
+re-read and discards it, reached it in 0 of 9, as did every other variant. On the 52 part-1
+cases the two make identical tool calls.
+
+**Per-case caps and fitted position rules leak on faults they were not written against.**
+Three-artifact harness plus each rule, from
+[`results/part-1-addendum/position-rule-regrade.md`](results/part-1-addendum/position-rule-regrade.md)
+(mutant columns: conditioned survival; valid columns: brittle-fail count among runs whose end
+state and answer pass):
+
+| Rule | C | C1 | C2 | `alt_verify` rejected |
+|---|---|---|---|---|
+| none (per-case constraints as authored) | 39/111 | 111/111 | 111/111 | 0/140 |
+| `lookup_only` (fitted to C) | 0/111 | 0/111 | 111/111 | 4/140 |
+| `any_read` | 0/111 | 0/111 | 0/111 | 4/140 |
+| `any_read_or_stop` | 0/111 | 0/111 | 0/111 | 0/140 |
+
+`lookup_only` and `any_read` reject every one of `alt_verify`'s correct stops on the
+`changed_order` cases (9 of 9 by end state; the 4/140 counts only the 4 whose answer also
+passed). `any_read_or_stop` was written after seeing that, so it is fitted too and has not been
+tested against faults it was not written for.
+
+On the `changed_order` cases the answer layer passed `alt_verify` in only 4 of 9 runs: the judge
+scored five correct no-refund replies 2-3 of 5, mostly for not asking the customer to confirm.
+That is a grader finding for Part 3, not a trajectory result.

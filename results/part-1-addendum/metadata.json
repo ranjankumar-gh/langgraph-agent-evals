@@ -1,0 +1,42 @@
+{
+  "git_commit": "55b34b3df18d8288691d63c8c61218371b56be61",
+  "dirty": false,
+  "started_at": "2026-09-24T07:32:14+00:00",
+  "python": "3.13.9",
+  "langgraph": "1.2.12",
+  "langchain_ollama": "1.1.0",
+  "policy_model": {
+    "name": "nemotron-3-nano:30b-cloud",
+    "digest": "6fe6f0516d95790b0494e37f26309726b96ec0c78922c86a0208b4253e578beb",
+    "temperature": 0.7,
+    "hosted": true
+  },
+  "judge_model": {
+    "name": "gpt-oss:20b-cloud",
+    "digest": "cc40af19c7ab8964518c996e5e747c5810ba5ce38366e5f399a291210475e7cb",
+    "temperature": 0.7,
+    "hosted": true
+  },
+  "k": 3,
+  "variants": [
+    "baseline",
+    "alt_history_early",
+    "alt_recheck",
+    "alt_verify",
+    "A",
+    "B",
+    "C",
+    "C1",
+    "C2"
+  ],
+  "n_cases": 55,
+  "finished_at": "2026-09-24T07:40:00+00:00",
+  "llm_calls": {
+    "policy": 36,
+    "policy_cache_hits": 3822,
+    "judge": 18,
+    "judge_cache_hits": 1467,
+    "policy_retries": 0,
+    "judge_retries": 0
+  }
+}

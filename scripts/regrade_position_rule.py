@@ -6,6 +6,9 @@ Offline analysis of an existing results directory: reads runs.jsonl, calls no mo
   Written after watching mutant C survive the uniform max_calls cap, so it is fitted to C.
 - any_read:    a repeat of ANY read tool (lookup_order, get_refund_history) is allowed only as
   the call directly before issue_refund.
+- any_read_or_stop: as any_read, but a repeat read may also be the run's last tool call - the
+  shape of a verifying re-read that found a change and stopped (alt_verify on changed_order).
+  Also written after seeing results, so also fitted.
 
 Reported per rule: mutant survival (three-artifact harness plus the rule, counted on fired pairs
 whose baseline passes the same harness) and the brittle-fail rate of valid variants (runs whose
@@ -24,7 +27,7 @@ from agent.graph import MUTANTS, VALID_VARIANTS
 READ_TOOLS = ("lookup_order", "get_refund_history")
 
 
-def repeats_only_before_refund(calls: list[str], tools: tuple[str, ...]) -> bool:
+def repeats_only_before_refund(calls: list[str], tools: tuple[str, ...], allow_last: bool = False) -> bool:
     seen: set[str] = set()
     for i, call in enumerate(calls):
         if call not in tools:
@@ -32,7 +35,10 @@ def repeats_only_before_refund(calls: list[str], tools: tuple[str, ...]) -> bool
         if call not in seen:
             seen.add(call)
             continue
-        if i + 1 >= len(calls) or calls[i + 1] != "issue_refund":
+        if i + 1 >= len(calls):
+            if not allow_last:
+                return False
+        elif calls[i + 1] != "issue_refund":
             return False
     return True
 
@@ -41,6 +47,7 @@ RULES = {
     "none": None,
     "lookup_only": ("lookup_order",),
     "any_read": READ_TOOLS,
+    "any_read_or_stop": READ_TOOLS,
 }
 
 
@@ -50,7 +57,9 @@ def names(run: dict) -> list[str]:
 
 def rule_ok(run: dict, rule: str) -> bool:
     tools = RULES[rule]
-    return True if tools is None else repeats_only_before_refund(names(run), tools)
+    if tools is None:
+        return True
+    return repeats_only_before_refund(names(run), tools, allow_last=(rule == "any_read_or_stop"))
 
 
 def passes(run: dict, rule: str) -> bool:
