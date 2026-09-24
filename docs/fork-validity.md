@@ -7,11 +7,19 @@ all five rules hold. This file maps each rule to the code that enforces it in th
 
 | # | Rule | Enforced by |
 |---|---|---|
-| 1 | The fork point precedes the changed node, and nothing upstream reads what it changed. | `evals/fork.py:find_fork_point` - the earliest checkpoint whose `next` is the changed node, so the node has not run yet. |
+| 1 | The fork point precedes the changed node. | `evals/fork.py:find_fork_point` - the earliest checkpoint whose `next` is the changed node, so the node has not run yet. |
 | 2 | Routing into the changed node is unchanged. | `evals/fork.py:check_routing` - replays the change's routers (`agent/graph.py:make_routers`) over every baseline step up to the fork point, or over the whole run when the baseline never reached the node. |
 | 3 | A world snapshot is paired with every stored checkpoint. | `evals/fork.py:record_run` + `agent/tools.py:WorldSnapshot` - the database, tool counters and call log after every step, keyed by checkpoint id. A checkpoint restores the thread, not the world. |
 | 4 | Remaining bounds are carried into the fork. | `evals/fork.py:carried_limit` - a fork starts with a fresh `recursion_limit` (verified on langgraph 1.2.12), so the fork runs under `limit - (fork_step + 1)`. |
 | 5 | Fork from all k baseline trials, not one. | `evals/runner_part2.py:run_group` - one group per (case, trial), every trial forked. |
+
+Rule 1 has a second half `find_fork_point` does not check: nothing upstream of the fork
+point may read what the changed node writes, or a fork that skips re-running the upstream
+nodes would replay stale reads. That holds by construction for D and E - both edit
+`compute_refund`, which no upstream node (`classify_request`, `lookup_order`,
+`get_refund_history`, `check_eligibility`) reads - and is not checked by code. A future
+change that edits a field an upstream node reads would need its own check; this repo has
+none.
 
 ## The three ways a fork harness goes wrong, measured in `results/part-2/`
 
