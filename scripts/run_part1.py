@@ -13,7 +13,6 @@ import argparse
 import json
 import platform
 import subprocess
-import sys
 from dataclasses import asdict
 from datetime import datetime, timezone
 from importlib.metadata import version
@@ -24,6 +23,7 @@ from agent.llm import OllamaLLM
 from evals.report import render_markdown, summarize, write_transcripts
 from evals.runner import run_case
 from evals.schema import load_cases
+from scripts.provenance import guard
 
 POLICY_MODEL = "nemotron-3-nano:30b-cloud"
 JUDGE_MODEL = "gpt-oss:20b-cloud"
@@ -55,28 +55,8 @@ def main(argv: list[str] | None = None) -> int:
     if not args.summarize_only:
         commit = _git("rev-parse", "HEAD")
         dirty = bool(_git("status", "--porcelain", "--", "agent", "env", "evals"))
-        if dirty and not args.allow_dirty:
-            sys.exit("agent/, env/ or evals/ has uncommitted changes; commit before a measured run")
-        previous = None
-        if meta_path.exists():
-            previous = json.loads(meta_path.read_text())
-            if previous["git_commit"] != commit:
-                sys.exit(f"{out} holds runs from {previous['git_commit']}; use a new --out or delete it")
-            if previous["policy_model"]["name"] != args.policy_model:
-                sys.exit(
-                    f"{out} holds runs graded by policy model {previous['policy_model']['name']!r}; "
-                    f"use a new --out or delete it"
-                )
-            if previous["judge_model"]["name"] != args.judge_model:
-                sys.exit(
-                    f"{out} holds runs graded by judge model {previous['judge_model']['name']!r}; "
-                    f"use a new --out or delete it"
-                )
-        elif runs_path.exists() and runs_path.read_text(encoding="utf-8").strip():
-            sys.exit(
-                f"{out} holds runs in runs.jsonl but no metadata.json; provenance unknown; "
-                f"use a new --out or delete it"
-            )
+        previous = guard(out, commit=commit, dirty=dirty, allow_dirty=args.allow_dirty,
+                         policy_model=args.policy_model, judge_model=args.judge_model)
         variants = args.variants.split(",")
         cases = load_cases(Path(args.cases))
         if args.ids:
