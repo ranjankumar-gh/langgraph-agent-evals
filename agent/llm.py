@@ -64,7 +64,7 @@ RETRY_DELAYS = (2, 5)
 class StructuredOutputError(RuntimeError):
     """Raised when structured() gets no parsed result back from the model (seen when a
     hosted model's reply has no JSON object that validates against the schema, or - on
-    the local json_schema/tool-calling path - the tool is never called)."""
+    the local json_schema path - the parsed result comes back empty)."""
 
 
 def _retryable(exc: BaseException) -> bool:
