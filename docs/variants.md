@@ -70,6 +70,40 @@ a part-1 variant or case; results/part-1 is untouched.
 - **Mutant C2.** One redundant `get_refund_history`, inside `check_eligibility`. It is the same
   cost fault class as C on a different tool, and no rule about `lookup_order` covers it.
 
+## Part 2: changes under test
+
+Part 2 measures eval *harnesses* on a change, not a fault. Two changes, fixed before the
+measured run and not tuned after it:
+
+| Change | Edits | Behaviour |
+|---|---|---|
+| `D` | `compute_refund` prompt | appends one line: "If the stated reason is unclear or fits more than one category, choose store_credit." |
+| `E` | `compute_refund` prompt **and** the router out of `check_eligibility` | D's prompt, plus a "damaged items fast path": an ineligible order whose intent is `damaged` is routed into `compute_refund` instead of being refused |
+
+`baseline` is also run as a change: the no-op control. Forking the unchanged agent into
+itself must reproduce the baseline's verdicts up to sampling noise, so any systematic
+difference is the harness, not the agent.
+
+Every change's fork point is the checkpoint just before `compute_refund`. D touches only
+that node, so a fork is valid on every case. E also changes the routing *into* that node,
+so on the cases where the baseline never reached `compute_refund`, the fork has no fork
+point and the regression E introduces never runs.
+
+### What the harness is expected to show (recorded before measuring)
+
+1. A paired fork skips `classify_request` and the three upstream tool calls, so it costs
+   fewer LLM calls, tokens and seconds than a full rerun of the same change.
+2. On the no-op control and on D, the paired fork's change-minus-baseline delta has a
+   narrower case-clustered interval than the full rerun's, because the two runs share their
+   upstream draw (common random numbers).
+3. A naive fork (the thread is restored but the world is not) gives wrong verdicts on
+   refund-issuing paths: the world already holds the baseline's refund, so the fork's
+   refund is a second row and a second `issue_refund` call.
+4. On E, the fork arm misses the refunds issued on ineligible damaged orders that a full
+   rerun catches. The routing check flags exactly those cases as unforkable.
+
+Whatever the measured numbers are, they are reported as measured.
+
 ## Sources
 
 Citations for each fault class are given in the Part 1 article.

@@ -2,8 +2,8 @@ from datetime import date
 
 from langgraph.checkpoint.memory import InMemorySaver
 
-from agent.graph import build_graph, run_agent
-from agent.prompts import Classification, RefundDecision
+from agent.graph import build_graph, make_routers, run_agent
+from agent.prompts import COMPUTE_SYSTEM, COMPUTE_SYSTEM_D, Classification, RefundDecision
 from agent.tools import Tools
 from env.db import create_db
 from env.fixtures import EnvSpec, OrderSpec
@@ -200,3 +200,56 @@ def test_eligibility_failure_routes_to_respond():
     assert calls(tools) == ["lookup_order", "get_refund_history", "check_eligibility"]
     assert refunds(conn) == []
     assert "Error: check_eligibility failed" in llm.prompts[-1][1]
+
+
+OUT_OF_WINDOW = "2026-04-01"  # 75 days before the frozen today: ineligible
+
+
+def test_change_d_sends_the_new_compute_prompt_and_nothing_else_differs():
+    graph, tools, conn, fired, llm = make("D")
+    run(graph)
+    systems = [system for system, _ in llm.prompts]
+    assert COMPUTE_SYSTEM_D in systems and COMPUTE_SYSTEM not in systems
+    assert calls(tools) == REFUND_PATH
+    assert fired == []
+
+
+def test_baseline_refuses_an_ineligible_damaged_order():
+    graph, tools, conn, fired, _ = make("baseline", delivered_on=OUT_OF_WINDOW)
+    run(graph)
+    assert "issue_refund" not in calls(tools)
+    assert refunds(conn) == []
+
+
+def test_change_e_routes_an_ineligible_damaged_order_into_compute_refund():
+    graph, tools, conn, fired, _ = make("E", delivered_on=OUT_OF_WINDOW)
+    run(graph)
+    assert "issue_refund" in calls(tools)
+    assert refunds(conn) == [("full", 149.0)]
+    assert fired == ["E:damaged_fast_path"]
+
+
+def test_change_e_behaves_like_d_on_an_eligible_order():
+    graph, tools, conn, fired, llm = make("E")
+    run(graph)
+    assert calls(tools) == REFUND_PATH
+    assert COMPUTE_SYSTEM_D in [system for system, _ in llm.prompts]
+    assert fired == []
+
+
+def test_change_e_keeps_refusing_ineligible_orders_that_are_not_damaged():
+    graph, tools, conn, fired, _ = make("E", delivered_on=OUT_OF_WINDOW, intent="changed_mind", refund_type="store_credit")
+    run(graph)
+    assert "issue_refund" not in calls(tools)
+    assert fired == []
+
+
+def test_routers_are_pure_functions_of_state():
+    state = {"intent": "damaged", "eligibility": {"eligible": False, "reason": "window"}}
+    assert make_routers("baseline", [])["check_eligibility"](state) == "respond"
+    assert make_routers("D", [])["check_eligibility"](state) == "respond"
+    assert make_routers("E", [])["check_eligibility"](state) == "compute_refund"
+    assert set(make_routers("baseline", [])) == {
+        "classify_request", "lookup_order", "get_refund_history",
+        "check_eligibility", "compute_refund", "request_approval",
+    }

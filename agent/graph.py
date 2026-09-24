@@ -6,6 +6,8 @@ report can separate "the mutant ran" from "the mutant's fault happened".
 """
 from __future__ import annotations
 
+from typing import Callable
+
 from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command, interrupt
@@ -14,6 +16,7 @@ from agent.llm import LLM
 from agent.prompts import (
     CLASSIFY_SYSTEM,
     COMPUTE_SYSTEM,
+    COMPUTE_SYSTEM_D,
     RESPOND_SYSTEM,
     Classification,
     RefundDecision,
@@ -25,6 +28,13 @@ APPROVAL_THRESHOLD = 1000.0
 VALID_VARIANTS = ("baseline", "alt_history_early", "alt_recheck", "alt_verify")
 MUTANTS = ("A", "B", "C", "C1", "C2")
 VARIANTS = VALID_VARIANTS + MUTANTS
+
+# Part 2 changes under test. Not part of VARIANTS, so Part 1's runs and CLI defaults are unchanged.
+CHANGES = ("D", "E")
+ALL_VARIANTS = VARIANTS + CHANGES
+# The node each change edits, i.e. where a fork of that change starts. "baseline" is the
+# no-op control change: forking the unchanged agent into itself.
+CHANGED_NODE = {"baseline": "compute_refund", "D": "compute_refund", "E": "compute_refund"}
 
 
 def refund_amount(refund_type: str, price: float) -> float:
@@ -57,9 +67,63 @@ def render_facts(state: dict, *, status_from_plan: bool = False) -> str:
     return "\n".join(lines)
 
 
+def make_routers(variant: str, fired: list[str]) -> dict[str, Callable[[dict], str]]:
+    """The graph's conditional edges for a variant, keyed by source node.
+
+    Pure functions of state (apart from recording fault markers in `fired`), so the Part 2
+    fork harness can replay a change's routing over a baseline's recorded states."""
+
+    def after_classify(state: RefundState) -> str:
+        if not state.get("order_id"):
+            return "respond"
+        return "get_refund_history" if variant == "alt_history_early" else "lookup_order"
+
+    def after_lookup(state: RefundState) -> str:
+        if state.get("error"):
+            return "respond"
+        return "check_eligibility" if variant == "alt_history_early" else "get_refund_history"
+
+    def after_history(state: RefundState) -> str:
+        if state.get("error"):
+            return "respond"
+        if variant == "alt_history_early":
+            return "lookup_order"
+        if variant == "A" and state.get("intent") == "damaged":
+            fired.append("A:skipped_eligibility")
+            return "compute_refund"
+        return "check_eligibility"
+
+    def after_eligibility(state: RefundState) -> str:
+        if state.get("error"):
+            return "respond"
+        if state["eligibility"]["eligible"]:
+            return "compute_refund"
+        if variant == "E" and state.get("intent") == "damaged":
+            # Change E: a "damaged items fast path" shipped in the same PR as D's prompt change.
+            # It routes ineligible damaged orders into compute_refund instead of refusing them.
+            fired.append("E:damaged_fast_path")
+            return "compute_refund"
+        return "respond"
+
+    def after_compute(state: RefundState) -> str:
+        return "request_approval" if state["refund_amount"] > APPROVAL_THRESHOLD else "issue_refund"
+
+    def after_approval(state: RefundState) -> str:
+        return "issue_refund" if state.get("approval") == "approve" else "respond"
+
+    return {
+        "classify_request": after_classify,
+        "lookup_order": after_lookup,
+        "get_refund_history": after_history,
+        "check_eligibility": after_eligibility,
+        "compute_refund": after_compute,
+        "request_approval": after_approval,
+    }
+
+
 def build_graph(variant: str, llm: LLM, tools: Tools, *, seed: int, fired: list[str], checkpointer):
-    if variant not in VARIANTS:
-        raise ValueError(f"unknown variant {variant!r}; expected one of {VARIANTS}")
+    if variant not in ALL_VARIANTS:
+        raise ValueError(f"unknown variant {variant!r}; expected one of {ALL_VARIANTS}")
 
     def redundant_lookup(state: RefundState) -> None:
         fired.append("C:redundant_lookup")
@@ -118,7 +182,8 @@ def build_graph(variant: str, llm: LLM, tools: Tools, *, seed: int, fired: list[
             f"Order: {order['item']} ({order['category']}), price {order['price']:.2f}\n"
             f"Order notes: {order['notes'] or '(none)'}"
         )
-        decision = llm.structured(COMPUTE_SYSTEM, user, RefundDecision, seed=seed)
+        system = COMPUTE_SYSTEM_D if variant in CHANGES else COMPUTE_SYSTEM
+        decision = llm.structured(system, user, RefundDecision, seed=seed)
         return {
             "refund_type": decision.refund_type,
             "refund_amount": refund_amount(decision.refund_type, order["price"]),
@@ -168,36 +233,7 @@ def build_graph(variant: str, llm: LLM, tools: Tools, *, seed: int, fired: list[
         facts = render_facts(state, status_from_plan=bool(false_success))
         return {"messages": [AIMessage(content=llm.text(RESPOND_SYSTEM, facts, seed=seed))]}
 
-    def after_classify(state: RefundState) -> str:
-        if not state.get("order_id"):
-            return "respond"
-        return "get_refund_history" if variant == "alt_history_early" else "lookup_order"
-
-    def after_lookup(state: RefundState) -> str:
-        if state.get("error"):
-            return "respond"
-        return "check_eligibility" if variant == "alt_history_early" else "get_refund_history"
-
-    def after_history(state: RefundState) -> str:
-        if state.get("error"):
-            return "respond"
-        if variant == "alt_history_early":
-            return "lookup_order"
-        if variant == "A" and state.get("intent") == "damaged":
-            fired.append("A:skipped_eligibility")
-            return "compute_refund"
-        return "check_eligibility"
-
-    def after_eligibility(state: RefundState) -> str:
-        if state.get("error"):
-            return "respond"
-        return "compute_refund" if state["eligibility"]["eligible"] else "respond"
-
-    def after_compute(state: RefundState) -> str:
-        return "request_approval" if state["refund_amount"] > APPROVAL_THRESHOLD else "issue_refund"
-
-    def after_approval(state: RefundState) -> str:
-        return "issue_refund" if state.get("approval") == "approve" else "respond"
+    routers = make_routers(variant, fired)
 
     graph = StateGraph(RefundState)
     for node in (
@@ -206,14 +242,20 @@ def build_graph(variant: str, llm: LLM, tools: Tools, *, seed: int, fired: list[
     ):
         graph.add_node(node.__name__, node)
     graph.add_edge(START, "classify_request")
-    graph.add_conditional_edges("classify_request", after_classify, ["lookup_order", "get_refund_history", "respond"])
-    graph.add_conditional_edges("lookup_order", after_lookup, ["get_refund_history", "check_eligibility", "respond"])
     graph.add_conditional_edges(
-        "get_refund_history", after_history, ["lookup_order", "check_eligibility", "compute_refund", "respond"]
+        "classify_request", routers["classify_request"], ["lookup_order", "get_refund_history", "respond"]
     )
-    graph.add_conditional_edges("check_eligibility", after_eligibility, ["compute_refund", "respond"])
-    graph.add_conditional_edges("compute_refund", after_compute, ["request_approval", "issue_refund"])
-    graph.add_conditional_edges("request_approval", after_approval, ["issue_refund", "respond"])
+    graph.add_conditional_edges(
+        "lookup_order", routers["lookup_order"], ["get_refund_history", "check_eligibility", "respond"]
+    )
+    graph.add_conditional_edges(
+        "get_refund_history",
+        routers["get_refund_history"],
+        ["lookup_order", "check_eligibility", "compute_refund", "respond"],
+    )
+    graph.add_conditional_edges("check_eligibility", routers["check_eligibility"], ["compute_refund", "respond"])
+    graph.add_conditional_edges("compute_refund", routers["compute_refund"], ["request_approval", "issue_refund"])
+    graph.add_conditional_edges("request_approval", routers["request_approval"], ["issue_refund", "respond"])
     graph.add_edge("issue_refund", "respond")
     graph.add_edge("respond", END)
     return graph.compile(checkpointer=checkpointer)

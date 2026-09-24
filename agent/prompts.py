@@ -37,6 +37,11 @@ COMPUTE_SYSTEM = f"""You decide which refund type applies to an order that has a
 {POLICY_TEXT}
 Choose exactly one refund_type and explain briefly. Base the decision on the customer's stated reason."""
 
+# Change D (Part 2): a one-line prompt change under test. Its last line pushes unclear or
+# mixed-reason requests toward store credit - the kind of cost-saving tweak that ships
+# without a full eval rerun.
+COMPUTE_SYSTEM_D = COMPUTE_SYSTEM + "\nIf the stated reason is unclear or fits more than one category, choose store_credit."
+
 RESPOND_SYSTEM = """You write the final reply to a customer of a refund desk.
 Use only the facts provided. State clearly whether a refund was issued, its type and amount if issued, or why not.
 If the order id was not provided, ask the customer for it. Keep the reply under 80 words."""
