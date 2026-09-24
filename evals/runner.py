@@ -1,7 +1,7 @@
 """Runs one (case, variant, trial) and applies every check layer.
 
-Part 1 runner: a fresh in-memory checkpointer and a fresh database per run. Part 2
-replaces this with a checkpointer-native runner.
+Part 1 runner: a fresh in-memory checkpointer and a fresh database per run. The Part 2
+fork harness (evals/runner_part2.py) reuses grade_run().
 """
 from __future__ import annotations
 
@@ -49,37 +49,19 @@ class RunRecord:
     elapsed_s: float
 
 
-def run_case(case: Case, variant: str, trial: int, llm: LLM, judge: LLM) -> RunRecord:
+def final_message(values: dict) -> str:
+    messages = values.get("messages", [])
+    return str(messages[-1].content) if len(messages) > 1 else ""
+
+
+def grade_run(case: Case, variant: str, trial: int, *, conn, tools: Tools, nodes: list[str], final: str,
+              fired: list[str], crashed: str | None, judge: LLM, started: float) -> RunRecord:
+    """Apply every check layer to a finished run (full or forked) and build its record."""
     seed = trial
-    conn = create_db(case.env)
-    tools = Tools(conn, date.fromisoformat(case.env.today), dict(case.env.faults),
-                  reprice_on_reread=case.env.reprice_on_reread)
-    fired: list[str] = []
-    graph = build_graph(variant, llm, tools, seed=seed, fired=fired, checkpointer=InMemorySaver())
-    started = time.perf_counter()
-    nodes: list[str] = []
-    final = ""
-    crashed: str | None = None
-    try:
-        values, nodes = run_agent(
-            graph,
-            request=case.request,
-            customer_id=case.customer_id,
-            thread_id=f"{case.id}:{variant}:{trial}",
-            approval=case.approval,
-        )
-        messages = values.get("messages", [])
-        final = str(messages[-1].content) if len(messages) > 1 else ""
-    except Exception as exc:  # every crash, including GraphRecursionError, is recorded as its own failure class
-        crashed = f"{type(exc).__name__}: {exc}"
     calls = [c.name for c in tools.log]
     end = check_end_state(conn, case.end_states)
     constraints = check_constraints(calls, case.constraints)
     grading_error: str | None = None
-    string_pass = False
-    judge_score = 0
-    judge_rationale = ""
-    answer_pass = False
     try:
         answer = answer_check(judge, case, final, seed=seed)
         string_pass = answer.string_pass
@@ -118,3 +100,29 @@ def run_case(case: Case, variant: str, trial: int, llm: LLM, judge: LLM) -> RunR
         answer_pass=answer_pass,
         elapsed_s=round(time.perf_counter() - started, 3),
     )
+
+
+def run_case(case: Case, variant: str, trial: int, llm: LLM, judge: LLM) -> RunRecord:
+    seed = trial
+    conn = create_db(case.env)
+    tools = Tools(conn, date.fromisoformat(case.env.today), dict(case.env.faults),
+                  reprice_on_reread=case.env.reprice_on_reread)
+    fired: list[str] = []
+    graph = build_graph(variant, llm, tools, seed=seed, fired=fired, checkpointer=InMemorySaver())
+    started = time.perf_counter()
+    nodes: list[str] = []
+    final = ""
+    crashed: str | None = None
+    try:
+        values, nodes = run_agent(
+            graph,
+            request=case.request,
+            customer_id=case.customer_id,
+            thread_id=f"{case.id}:{variant}:{trial}",
+            approval=case.approval,
+        )
+        final = final_message(values)
+    except Exception as exc:  # every crash, including GraphRecursionError, is recorded as its own failure class
+        crashed = f"{type(exc).__name__}: {exc}"
+    return grade_run(case, variant, trial, conn=conn, tools=tools, nodes=nodes, final=final,
+                     fired=fired, crashed=crashed, judge=judge, started=started)
