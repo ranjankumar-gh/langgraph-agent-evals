@@ -19,9 +19,11 @@ recorded runs are summarised or described.
   and its tests only: `runs.jsonl` is unchanged, and `summary.json`, `summary.md`
   and `transcripts/` were regenerated offline with
   `python -m scripts.run_part1 --summarize-only --out results/part-1`.
-- **`agent/llm.py` module docstring corrected.** It said the trial seed makes every
+- **`agent/llm.py` docstrings corrected.** It said the trial seed makes every
   variant see the same draw. Ollama Cloud does not honour the seed; for hosted models
-  it is the record/replay cache that pairs variants. Docstring only: no executable
-  change (the module's AST minus its docstring is identical), and the docstring is
+  it is the record/replay cache that pairs variants. The `StructuredOutputError` class
+  docstring was also corrected (it still mentioned a retired tool-calling path).
+  Docstrings only: no executable change (the module's AST with docstrings stripped is
+  identical to `cc1b6f8`), and docstrings are
   not part of any cache key, so every cached entry and every recorded run is
   unaffected.

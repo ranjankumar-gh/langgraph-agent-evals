@@ -206,7 +206,7 @@ interval collapses to 0%-0% (or 100%-100%); for those cells the per-run Wilson u
   change without it changing.
 - **Commits after the measured run.** The measured run was made at `cc1b6f8`. Later
   commits changed only report code, tests and documentation (including one
-  docstring-only edit to `agent/llm.py`); `runs.jsonl` and `metadata.json` are
+  docstring-only edits to `agent/llm.py`); `runs.jsonl` and `metadata.json` are
   untouched and `summary.*` was regenerated offline with `--summarize-only`. See
   [`results/part-1/CHANGELOG.md`](results/part-1/CHANGELOG.md).
 - **Cloud models can be retired.** Ollama Cloud tags such as `nemotron-3-nano:30b-cloud`
