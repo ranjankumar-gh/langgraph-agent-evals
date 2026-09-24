@@ -221,6 +221,26 @@ interval collapses to 0%-0% (or 100%-100%); for those cells the per-run Wilson u
   match the current run's, so switching `--judge-model` (or the policy model) never
   silently mixes rows graded by two different judges into one results directory.
 
+## Part 2: the checkpointer as the eval harness
+
+Stage `part-2` adds a checkpoint-fork harness (`evals/fork.py`, `evals/runner_part2.py`)
+and two changes under test: `D` (a one-line `compute_refund` prompt change) and `E` (the
+same prompt change plus a routing change into `compute_refund`). `baseline` is run as a
+no-op control. For every (case, trial) the harness records the baseline with a world
+snapshot at every checkpoint. For each change it then runs a full rerun, a paired fork
+from the checkpoint before `compute_refund`, and a naive fork that restores the thread but
+not the world. The validity rules are in [`docs/fork-validity.md`](docs/fork-validity.md);
+the changes, and what was expected of them before measuring, are in
+[`docs/variants.md`](docs/variants.md).
+
+```bash
+uv run python -m scripts.run_part2 --ids H01,I01,R01 --k 1 --out results/smoke-part2 --allow-dirty   # smoke
+uv run python -m scripts.run_part2 --k 3                                                             # measured run, ~4-5 h
+```
+
+The measured run is resumable per (case, trial) group: re-run the same command after an
+interruption. Results land in `results/part-2/`.
+
 ## Part 1 results
 
 Measured run at commit `cc1b6f8b0fad2b79d51ed4e9694dcee34e3fd073`, LangGraph `1.2.12`. Policy
