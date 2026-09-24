@@ -2,8 +2,10 @@
 
 A group is the baseline plus a full rerun, a paired fork and a naive fork for each change.
 The run is resumable per group: a group's rows are written together in one write, and a
-(case, trial) with a baseline row is complete. The provenance guard is the same one
-run_part1 uses.
+(case, trial) is complete only once it holds every row of the group (1 + 3 * len(changes)).
+A crash mid-write can leave a torn last line or a partial group behind; on resume those are
+dropped and re-run rather than trusted. The provenance guard is the same one run_part1
+uses.
 """
 from __future__ import annotations
 
@@ -21,6 +23,49 @@ from evals.runner_part2 import ArmLLMs, namespaces_for, run_group
 from evals.schema import load_cases
 from scripts.provenance import guard
 from scripts.run_part1 import JUDGE_MODEL, POLICY_MODEL, _git
+
+
+def _load_done(runs_path: Path, per_group: int) -> set[tuple[str, int]]:
+    """Return the (case_id, trial) groups that are complete (exactly `per_group` rows).
+
+    Reads runs.jsonl line by line: a line that fails to parse is dropped as torn (this can
+    only happen on a crash mid-write, and only to the last line). Any group left with fewer
+    than `per_group` rows is partial - also dropped, so it is re-run whole rather than
+    resumed from a state whose provenance is unknown. If anything was dropped, the file is
+    rewritten with only the surviving complete groups before it is reopened for append.
+    """
+    if not runs_path.exists():
+        return set()
+    by_group: dict[tuple[str, int], list[str]] = {}
+    unparseable = 0
+    for line in runs_path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            unparseable += 1
+            continue
+        by_group.setdefault((row["case_id"], row["trial"]), []).append(line)
+
+    done: set[tuple[str, int]] = set()
+    kept_lines: list[str] = []
+    partial = 0
+    for key, group_lines in by_group.items():
+        if len(group_lines) == per_group:
+            done.add(key)
+            kept_lines.extend(group_lines)
+        else:
+            partial += 1
+
+    if partial or unparseable:
+        runs_path.write_text("".join(line + "\n" for line in kept_lines), encoding="utf-8")
+        print(
+            f"dropped {partial} partial group(s) and {unparseable} unparseable line(s) from "
+            f"runs.jsonl; they will be re-run",
+            flush=True,
+        )
+    return done
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -81,12 +126,7 @@ def main(argv: list[str] | None = None) -> int:
             "n_cases": len(cases),
         }
         meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
-        done: set[tuple[str, int]] = set()
-        if runs_path.exists():
-            for line in runs_path.read_text(encoding="utf-8").splitlines():
-                row = json.loads(line)
-                if row["arm"] == "baseline":
-                    done.add((row["case_id"], row["trial"]))
+        done = _load_done(runs_path, 1 + 3 * len(changes))
         with runs_path.open("a", encoding="utf-8") as fh:
             for trial in range(args.k):
                 for case in cases:

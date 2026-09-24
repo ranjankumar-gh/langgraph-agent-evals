@@ -76,3 +76,54 @@ def test_run_part2_rejects_an_unknown_change(tmp_path, monkeypatch):
     with pytest.raises(SystemExit) as excinfo:
         run_part2.main(["--changes", "baseline,Z", "--out", str(tmp_path / "p2")])
     assert "Z" in str(excinfo.value)
+
+
+def test_run_part2_reruns_only_partial_groups_and_drops_torn_lines(tmp_path, monkeypatch, capsys):
+    groups = _setup(monkeypatch)
+    out = tmp_path / "p2"
+    out.mkdir()
+    changes = list(run_part2.ALL_CHANGES)  # ["baseline", "D", "E"]
+    per_group = 1 + 3 * len(changes)
+
+    def _group_rows(case_id, trial):
+        rows = [{"arm": "baseline", "change": "baseline", "case_id": case_id, "trial": trial}]
+        rows += [
+            {"arm": arm, "change": ch, "case_id": case_id, "trial": trial}
+            for ch in changes for arm in ("full", "fork", "fork_naive")
+        ]
+        return rows
+
+    complete_group = _group_rows("H01", 0)  # 10 rows, untouched
+    partial_group = _group_rows("I01", 0)[:1]  # baseline row only - a crash mid-write
+
+    lines = [json.dumps(r) for r in complete_group] + [json.dumps(r) for r in partial_group]
+    lines.append('{"arm": "full", "change": "D", "case_id": "I01", "trial": 0')  # torn last line
+    (out / "runs.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    (out / "metadata.json").write_text(
+        json.dumps({
+            "git_commit": "abc123",
+            "started_at": "2026-01-01T00:00:00+00:00",
+            "policy_model": {"name": run_part2.POLICY_MODEL},
+            "judge_model": {"name": run_part2.JUDGE_MODEL},
+        }),
+        encoding="utf-8",
+    )
+
+    args = ["--ids", "H01,I01", "--k", "1", "--out", str(out)]
+    assert run_part2.main(args) == 0
+
+    # Only the partial group (I01, trial 0) was re-run; the complete H01 group was left alone.
+    assert groups == [("I01", 0)]
+
+    notice = capsys.readouterr().out
+    assert "dropped 1 partial group(s) and 1 unparseable line(s) from runs.jsonl; they will be re-run" in notice
+
+    # runs.jsonl now parses cleanly and holds only complete groups.
+    lines_out = (out / "runs.jsonl").read_text(encoding="utf-8").splitlines()
+    rows = [json.loads(line) for line in lines_out]  # raises if any line is still torn
+    assert len(rows) == 2 * per_group
+    counts: dict[tuple[str, int], int] = {}
+    for row in rows:
+        key = (row["case_id"], row["trial"])
+        counts[key] = counts.get(key, 0) + 1
+    assert counts == {("H01", 0): per_group, ("I01", 0): per_group}
