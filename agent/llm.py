@@ -33,8 +33,12 @@ that chains the underlying cause.
 The cache key covers model digest, sampling options, prompts, schema, seed and the method
 used (json_schema for local vs the hosted prompt-embedded-schema approach), so a change in
 behaviour - old vs new reasoning/num_predict, or the retired function_calling method -
-never replays a stale cache entry. Seeds are the trial index, which makes every variant
-see the same draw for the same (case, trial).
+never replays a stale cache entry. Seeds are the trial index and are passed to the model,
+but Ollama Cloud does not honour the seed, so for hosted models the seed alone does not
+make variants see the same draw. What pairs variants is this cache: the seed is part of
+the key, so any two variants whose prompt to a node is identical (same case, trial and
+facts) replay the same cached classification, refund decision, reply and judge verdict.
+Variants that hand a node different facts get a different key and a fresh draw.
 """
 from __future__ import annotations
 

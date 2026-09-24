@@ -11,7 +11,7 @@ it, so a diff between variants is a diff of intent, not of scaffolding.
 | `alt_recheck` | valid | re-reads the order immediately before `issue_refund` (a legitimate safety re-read before money moves) |
 | `A` | mutant | skips `check_eligibility` when the classified intent is `damaged` ("sounds valid") |
 | `B` | mutant | when `issue_refund` fails, `respond` reports refund status from the plan (`refund_amount`) instead of the observation (`refund_id`) |
-| `C` | mutant | re-looks-up the order in `check_eligibility`, `compute_refund`, and `issue_refund` (4 lookups total) |
+| `C` | mutant | re-looks-up the order in `check_eligibility`, `compute_refund`, and `issue_refund` (4 lookups total on a refund-issuing path; 2 or 3 on a path that stops earlier) |
 
 ## Mutant A: skipped precondition check on a "confident" path
 
@@ -41,7 +41,10 @@ no such row.
 ## Mutant C: redundant reads that make the loop cost and latency grow
 
 C re-looks-up the same order in three separate nodes that all already have it
-in state, quadrupling the number of `lookup_order` calls for a single request.
+in state. On a refund-issuing path, which reaches all three nodes, that quadruples
+the number of `lookup_order` calls for a single request (1 becomes 4); on a path
+that stops before `issue_refund` (an ineligible order, say) only the nodes it
+reaches add a lookup, so it makes 2 or 3 instead of 1.
 The final outcome is identical to baseline — same refund, same amount — so
 nothing about correctness distinguishes C from a valid variant by output alone.
 This stands for the real-world fault class of an agent that keeps re-fetching
@@ -51,4 +54,4 @@ compounds into avoidable tool cost and latency at scale, and a superficial
 
 ## Sources
 
-Filled in from the Part 1 research brief.
+Citations for each fault class are given in the Part 1 article.
