@@ -1,3 +1,5 @@
+import hashlib
+import json
 import pytest
 from pydantic import BaseModel
 
@@ -419,3 +421,99 @@ def test_cache_key_differs_by_structured_output_method(tmp_path, monkeypatch):
     )
 
     assert json_schema_key != prompt_json_key
+
+
+def _info(model, base_url=""):
+    return {"digest": "abc", "capabilities": ["completion"]}
+
+
+def test_empty_namespace_keeps_part1_cache_keys(tmp_path, monkeypatch):
+    """The part-1 cache must stay valid: with no namespace, the key is the pre-part-2 hash."""
+    monkeypatch.setattr(llm_mod, "ollama_model_info", _info)
+    llm = llm_mod.OllamaLLM("qwen3:4b", cache_path=tmp_path / "c.sqlite")
+    legacy_blob = json.dumps(
+        ["qwen3:4b", "abc", 0.7, 512, None, "json_schema", "structured", "s", "u", {"x": 1}, 0], sort_keys=True
+    )
+    expected = hashlib.sha256(legacy_blob.encode()).hexdigest()
+    assert llm._key("structured", "s", "u", {"x": 1}, 0, reasoning=None, num_predict=512, method="json_schema") == expected
+
+
+def test_namespace_forces_a_fresh_draw_from_a_shared_cache(tmp_path, monkeypatch):
+    monkeypatch.setattr(llm_mod, "ollama_model_info", _info)
+    path = tmp_path / "c.sqlite"
+    plain = llm_mod.OllamaLLM("qwen3:4b", cache_path=path)
+    spaced = llm_mod.OllamaLLM("qwen3:4b", cache_path=path, namespace="p2-full-D")
+    for llm in (plain, spaced):
+        monkeypatch.setattr(llm, "_chat", lambda seed, *, reasoning, num_predict: _FakeChat())
+    _FakeChat.calls = 0
+
+    plain.structured("sys", "user", Classification, seed=0)
+    spaced.structured("sys", "user", Classification, seed=0)
+    spaced.structured("sys", "user", Classification, seed=0)
+
+    assert _FakeChat.calls == 2
+    assert spaced.usage()["hits"] == 1
+
+
+class _UsageChat:
+    """Stands in for ChatOllama: returns a message carrying usage_metadata, like the real one."""
+
+    def __init__(self, content: str, usage: dict | None) -> None:
+        self._content = content
+        self._usage = usage
+
+    def invoke(self, messages):
+        class _Msg:
+            pass
+
+        msg = _Msg()
+        msg.content = self._content
+        if self._usage is not None:
+            msg.usage_metadata = self._usage
+        return msg
+
+
+def test_text_meters_tokens_and_a_cache_hit_adds_none(tmp_path, monkeypatch):
+    monkeypatch.setattr(llm_mod, "ollama_model_info", _info)
+    llm = llm_mod.OllamaLLM("gemma3:4b", cache_path=tmp_path / "c.sqlite")
+    monkeypatch.setattr(
+        llm, "_chat",
+        lambda seed, *, reasoning, num_predict: _UsageChat("reply", {"input_tokens": 30, "output_tokens": 12, "total_tokens": 42}),
+    )
+    before = llm.usage()
+    llm.text("sys", "user", seed=0)
+    llm.text("sys", "user", seed=0)
+    delta = llm_mod.usage_delta(before, llm.usage())
+    assert (delta["calls"], delta["hits"], delta["input_tokens"], delta["output_tokens"], delta["unmetered"]) == (1, 1, 30, 12, 0)
+    assert delta["seconds"] >= 0
+
+
+def test_reply_without_usage_is_counted_unmetered_not_zero(tmp_path, monkeypatch):
+    monkeypatch.setattr(llm_mod, "ollama_model_info", _info)
+    llm = llm_mod.OllamaLLM("gemma3:4b", cache_path=tmp_path / "c.sqlite")
+    monkeypatch.setattr(llm, "_chat", lambda seed, *, reasoning, num_predict: _UsageChat("reply", None))
+    llm.text("sys", "user", seed=0)
+    assert llm.usage()["unmetered"] == 1
+    assert llm.usage()["input_tokens"] == 0
+
+
+def test_hosted_structured_meters_the_successful_reply(tmp_path, monkeypatch):
+    monkeypatch.setattr(llm_mod, "ollama_model_info", _info)
+    llm = llm_mod.OllamaLLM("nemotron-3-nano:30b-cloud", cache_path=tmp_path / "c.sqlite")
+    monkeypatch.setattr(
+        llm, "_chat",
+        lambda seed, *, reasoning, num_predict: _UsageChat(
+            '{"intent": "damaged", "order_id": "ORD-1001"}', {"input_tokens": 200, "output_tokens": 40, "total_tokens": 240}
+        ),
+    )
+    llm.structured("sys", "user", Classification, seed=0)
+    assert (llm.usage()["input_tokens"], llm.usage()["output_tokens"], llm.usage()["unmetered"]) == (200, 40, 0)
+
+
+def test_local_structured_is_unmetered(tmp_path, monkeypatch):
+    """with_structured_output returns the parsed model, not the message, so no usage is visible."""
+    monkeypatch.setattr(llm_mod, "ollama_model_info", _info)
+    llm = llm_mod.OllamaLLM("qwen3:4b", cache_path=tmp_path / "c.sqlite")
+    monkeypatch.setattr(llm, "_chat", lambda seed, *, reasoning, num_predict: _FakeChat())
+    llm.structured("sys", "user", Classification, seed=0)
+    assert llm.usage()["unmetered"] == 1

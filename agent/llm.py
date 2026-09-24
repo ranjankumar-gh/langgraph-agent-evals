@@ -39,6 +39,16 @@ make variants see the same draw. What pairs variants is this cache: the seed is 
 the key, so any two variants whose prompt to a node is identical (same case, trial and
 facts) replay the same cached classification, refund decision, reply and judge verdict.
 Variants that hand a node different facts get a different key and a fresh draw.
+
+A namespace (default empty) is appended to the cache key only when set, so a namespaced
+instance draws fresh from the model even for a prompt another instance has cached, and an
+un-namespaced instance keeps exactly the keys it had before namespaces existed. Part 2 gives
+each eval arm its own namespace so a full rerun and a fork are independent draws.
+
+Every live call is metered: wall seconds, and input/output tokens from the reply's
+usage_metadata. A reply with no usage (the local json_schema structured path returns only the
+parsed object) is counted as unmetered rather than as zero tokens. Cache hits add nothing.
+usage() snapshots the counters; usage_delta() diffs two snapshots.
 """
 from __future__ import annotations
 
@@ -132,6 +142,13 @@ class LLM(Protocol):
 
     def text(self, system: str, user: str, *, seed: int) -> str: ...
 
+    def usage(self) -> dict: ...
+
+
+def usage_delta(before: dict, after: dict) -> dict:
+    """Counter differences between two usage() snapshots of the same LLM."""
+    return {k: round(after[k] - before[k], 3) if k == "seconds" else after[k] - before[k] for k in after}
+
 
 def _get_json(url: str, payload: dict | None = None) -> dict:
     data = None if payload is None else json.dumps(payload).encode()
@@ -159,6 +176,7 @@ class OllamaLLM:
         num_predict: int = 512,
         cache_path: Path = Path(".cache/llm.sqlite"),
         base_url: str = "http://localhost:11434",
+        namespace: str = "",
     ) -> None:
         info = ollama_model_info(model, base_url)
         self.name = model
@@ -186,6 +204,12 @@ class OllamaLLM:
         self.retries = 0
         # A patchable hook so tests can skip the real backoff.
         self._sleep = time.sleep
+        self.namespace = namespace
+        self.input_tokens = 0
+        self.output_tokens = 0
+        # Live calls whose reply carried no usage_metadata: tokens unknown, not zero.
+        self.unmetered = 0
+        self.seconds = 0.0
 
     def _key(
         self,
@@ -203,22 +227,23 @@ class OllamaLLM:
         # between text() and structured(), and from the constructor default for thinking models'
         # text() calls, and between hosted and local models' structured() calls) so that a cache
         # entry recorded under old behaviour is never replayed.
-        blob = json.dumps(
-            [
-                self.name,
-                self.digest,
-                self.temperature,
-                num_predict,
-                reasoning,
-                method,
-                kind,
-                system,
-                user,
-                extra,
-                seed,
-            ],
-            sort_keys=True,
-        )
+        parts = [
+            self.name,
+            self.digest,
+            self.temperature,
+            num_predict,
+            reasoning,
+            method,
+            kind,
+            system,
+            user,
+            extra,
+            seed,
+        ]
+        # Appended only when set, so an un-namespaced key is byte-identical to the part-1 key.
+        if self.namespace:
+            parts.append(self.namespace)
+        blob = json.dumps(parts, sort_keys=True)
         return hashlib.sha256(blob.encode()).hexdigest()
 
     def _lookup(self, key: str) -> str | None:
@@ -231,6 +256,25 @@ class OllamaLLM:
     def _store(self, key: str, value: str) -> None:
         self._db.execute("INSERT OR REPLACE INTO cache VALUES (?, ?)", (key, value))
         self._db.commit()
+
+    def _meter(self, message, started: float) -> None:
+        self.seconds += time.perf_counter() - started
+        usage = getattr(message, "usage_metadata", None)
+        if usage:
+            self.input_tokens += usage.get("input_tokens", 0)
+            self.output_tokens += usage.get("output_tokens", 0)
+        else:
+            self.unmetered += 1
+
+    def usage(self) -> dict:
+        return {
+            "calls": self.calls,
+            "hits": self.hits,
+            "input_tokens": self.input_tokens,
+            "output_tokens": self.output_tokens,
+            "unmetered": self.unmetered,
+            "seconds": round(self.seconds, 3),
+        }
 
     def _chat(self, seed: int, *, reasoning: bool | None, num_predict: int):
         from langchain_ollama import ChatOllama
@@ -264,11 +308,13 @@ class OllamaLLM:
         if cached is not None:
             return schema.model_validate_json(cached)
         self.calls += 1
+        started = time.perf_counter()
         result = (
             self._chat(seed, reasoning=reasoning, num_predict=num_predict)
             .with_structured_output(schema, method=method)
             .invoke([("system", system), ("human", user)])
         )
+        self._meter(None, started)
         if result is None:
             raise StructuredOutputError(f"{self.name} returned no structured output")
         self._store(key, result.model_dump_json())
@@ -304,11 +350,12 @@ class OllamaLLM:
                 self._sleep(RETRY_DELAYS[attempt - 1])
             self.calls += 1
             try:
-                content = str(
-                    self._chat(seed, reasoning=reasoning, num_predict=num_predict)
-                    .invoke([("system", schema_system), ("human", user)])
-                    .content
+                started = time.perf_counter()
+                message = self._chat(seed, reasoning=reasoning, num_predict=num_predict).invoke(
+                    [("system", schema_system), ("human", user)]
                 )
+                self._meter(message, started)
+                content = str(message.content)
                 result = _parse_structured_reply(content, schema, self.name)
             except Exception as exc:
                 if attempt < 2 and _retryable(exc):
@@ -332,11 +379,12 @@ class OllamaLLM:
             content = self._text_hosted(system, user, seed, reasoning=reasoning, num_predict=num_predict)
         else:
             self.calls += 1
-            content = str(
-                self._chat(seed, reasoning=reasoning, num_predict=num_predict)
-                .invoke([("system", system), ("human", user)])
-                .content
+            started = time.perf_counter()
+            message = self._chat(seed, reasoning=reasoning, num_predict=num_predict).invoke(
+                [("system", system), ("human", user)]
             )
+            self._meter(message, started)
+            content = str(message.content)
         self._store(key, json.dumps(content))
         return content
 
@@ -349,11 +397,12 @@ class OllamaLLM:
                 self._sleep(RETRY_DELAYS[attempt - 1])
             self.calls += 1
             try:
-                return str(
-                    self._chat(seed, reasoning=reasoning, num_predict=num_predict)
-                    .invoke([("system", system), ("human", user)])
-                    .content
+                started = time.perf_counter()
+                message = self._chat(seed, reasoning=reasoning, num_predict=num_predict).invoke(
+                    [("system", system), ("human", user)]
                 )
+                self._meter(message, started)
+                return str(message.content)
             except Exception as exc:
                 if attempt < 2 and _retryable(exc):
                     continue

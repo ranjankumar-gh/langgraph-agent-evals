@@ -29,3 +29,7 @@ class FakeLLM:
     def text(self, system, user, *, seed):
         self.prompts.append((system, user))
         return self.reply
+
+    def usage(self) -> dict:
+        n = len(self.prompts)
+        return {"calls": n, "hits": 0, "input_tokens": 0, "output_tokens": 0, "unmetered": n, "seconds": 0.0}
