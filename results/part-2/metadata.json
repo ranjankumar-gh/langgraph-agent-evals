@@ -1,0 +1,128 @@
+{
+  "git_commit": "625e3e93950a0b861ce2e2b0ee16f8b8f127c2e4",
+  "dirty": false,
+  "started_at": "2026-09-24T11:46:26+00:00",
+  "python": "3.13.9",
+  "langgraph": "1.2.12",
+  "langchain_ollama": "1.1.0",
+  "policy_model": {
+    "name": "nemotron-3-nano:30b-cloud",
+    "digest": "6fe6f0516d95790b0494e37f26309726b96ec0c78922c86a0208b4253e578beb",
+    "temperature": 0.7,
+    "hosted": true
+  },
+  "judge_model": {
+    "name": "gpt-oss:20b-cloud",
+    "digest": "cc40af19c7ab8964518c996e5e747c5810ba5ce38366e5f399a291210475e7cb",
+    "temperature": 0.7,
+    "hosted": true
+  },
+  "k": 3,
+  "changes": [
+    "baseline",
+    "D",
+    "E"
+  ],
+  "namespaces": [
+    "",
+    "p2-fork-D@part-2-625e3e9",
+    "p2-fork-baseline@part-2-625e3e9",
+    "p2-full-D@part-2-625e3e9",
+    "p2-full-baseline@part-2-625e3e9"
+  ],
+  "n_cases": 55,
+  "run_tag": "part-2-625e3e9",
+  "finished_at": "2026-09-25T09:55:11+00:00",
+  "llm_usage": {
+    "": {
+      "policy": {
+        "calls": 0,
+        "hits": 111,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "unmetered": 0,
+        "seconds": 0.0
+      },
+      "judge": {
+        "calls": 0,
+        "hits": 43,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "unmetered": 0,
+        "seconds": 0.0
+      }
+    },
+    "p2-fork-D@part-2-625e3e9": {
+      "policy": {
+        "calls": 63,
+        "hits": 136,
+        "input_tokens": 13331,
+        "output_tokens": 12499,
+        "unmetered": 0,
+        "seconds": 312.221
+      },
+      "judge": {
+        "calls": 38,
+        "hits": 61,
+        "input_tokens": 14113,
+        "output_tokens": 7642,
+        "unmetered": 0,
+        "seconds": 210.582
+      }
+    },
+    "p2-fork-baseline@part-2-625e3e9": {
+      "policy": {
+        "calls": 62,
+        "hits": 38,
+        "input_tokens": 12901,
+        "output_tokens": 12396,
+        "unmetered": 0,
+        "seconds": 272.845
+      },
+      "judge": {
+        "calls": 38,
+        "hits": 12,
+        "input_tokens": 14098,
+        "output_tokens": 7568,
+        "unmetered": 0,
+        "seconds": 206.583
+      }
+    },
+    "p2-full-D@part-2-625e3e9": {
+      "policy": {
+        "calls": 119,
+        "hits": 107,
+        "input_tokens": 28417,
+        "output_tokens": 22313,
+        "unmetered": 0,
+        "seconds": 502.411
+      },
+      "judge": {
+        "calls": 47,
+        "hits": 38,
+        "input_tokens": 17201,
+        "output_tokens": 9106,
+        "unmetered": 0,
+        "seconds": 258.09
+      }
+    },
+    "p2-full-baseline@part-2-625e3e9": {
+      "policy": {
+        "calls": 104,
+        "hits": 7,
+        "input_tokens": 24972,
+        "output_tokens": 18575,
+        "unmetered": 0,
+        "seconds": 459.145
+      },
+      "judge": {
+        "calls": 40,
+        "hits": 3,
+        "input_tokens": 14685,
+        "output_tokens": 7852,
+        "unmetered": 0,
+        "seconds": 222.568
+      }
+    }
+  }
+}

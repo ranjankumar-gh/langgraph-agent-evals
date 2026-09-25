@@ -241,6 +241,95 @@ uv run python -m scripts.run_part2 --k 3                                        
 The measured run is resumable per (case, trial) group: re-run the same command after an
 interruption. Results land in `results/part-2/`.
 
+## Part 2 results
+
+Commit `625e3e9` (run tag `part-2-625e3e9`), langgraph 1.2.12, k=3, 55 cases, 165
+(case, trial) groups, 1650 rows: 2 crashed (Ollama Cloud timeouts), 0 grading errors.
+
+- Policy model: `nemotron-3-nano:30b-cloud`, digest `6fe6f0516d95790b0494e37f26309726b96ec0c78922c86a0208b4253e578beb`.
+- Judge model: `gpt-oss:20b-cloud`, digest `cc40af19c7ab8964518c996e5e747c5810ba5ce38366e5f399a291210475e7cb`.
+
+A DNS outage during the first pass crashed 43 groups. Those groups were removed and
+re-run at the same commit and run tag; see
+[`results/part-2/CHANGELOG.md`](results/part-2/CHANGELOG.md). Full tables are in
+[`results/part-2/summary.md`](results/part-2/summary.md).
+
+96 of the 165 (case, trial) pairs reach `compute_refund` in the baseline and can be forked.
+The other 69 inherit the baseline's verdict.
+
+### Cost: full rerun vs paired fork (forkable pairs, metered rows only)
+
+| Change | Arm | Metered runs (excluded) | Wall-clock total s | Median s/run | Policy calls | Judge calls | Input tokens | Output tokens |
+|---|---|---|---|---|---|---|---|---|
+| baseline | full | 95 (1) | 1894.8 | 18.63 | 286 | 95 | 105859 | 68313 |
+| baseline | fork | 95 (1) | 1495.9 | 14.51 | 190 | 95 | 76744 | 55637 |
+| D | full | 96 (0) | 2338.5 | 18.47 | 287 | 97 | 107658 | 66799 |
+| D | fork | 95 (1) | 1756.2 | 14.34 | 189 | 94 | 77757 | 56988 |
+
+On D, the paired fork made a third fewer policy calls (189 vs 287) and used about 28% fewer
+input tokens and 25% less wall-clock than a full rerun of the same change.
+
+### Paired delta vs baseline (forkable pairs; by-case bootstrap 95% CI)
+
+| Change | Score | Arm | n | Mean | SD | By-case 95% CI | CI width |
+|---|---|---|---|---|---|---|---|
+| baseline | three_artifact | full | 96 | 0.0312 | 0.2273 | 0.0 to 0.0625 | 0.0625 |
+| baseline | three_artifact | fork | 96 | 0.0208 | 0.2041 | 0.0 to 0.0521 | 0.0521 |
+| baseline | judge_score | full | 96 | 0.0729 | 0.6843 | -0.0312 to 0.2083 | 0.2396 |
+| baseline | judge_score | fork | 96 | 0.1562 | 0.8121 | 0.0104 to 0.3438 | 0.3333 |
+| D | three_artifact | full | 96 | 0.0208 | 0.2504 | -0.0208 to 0.0729 | 0.0938 |
+| D | three_artifact | fork | 96 | 0.0104 | 0.2292 | -0.0312 to 0.0625 | 0.0938 |
+| D | judge_score | full | 96 | 0.0312 | 0.8392 | -0.125 to 0.1875 | 0.3125 |
+| D | judge_score | fork | 96 | 0.1979 | 0.9133 | 0.0208 to 0.3958 | 0.375 |
+
+Fork-to-full variance ratio (case-clustered bootstrap):
+
+- `baseline` / `three_artifact`: 0.81 (95% CI 0.26 to 1.0)
+- `baseline` / `judge_score`: 1.41 (0.98 to 2.85)
+- `D` / `three_artifact`: 0.84 (0.38 to 1.63)
+- `D` / `judge_score`: 1.18 (0.68 to 2.29)
+
+The pre-registered expectation that the paired fork would narrow the delta's interval is
+**not supported**:
+
+- Every ratio's interval includes 1.
+- On the judge score, the fork is if anything noisier.
+- On the no-op control, the fork's judge-score delta (+0.16) has an interval that excludes 0.
+
+Upstream of `compute_refund`, the only LLM draw is the classifier, so a shared upstream draw
+has little variance to remove. The judge and reply draws after the fork point are fresh in
+both arms.
+
+### Naive fork vs paired fork (same compute_refund decision)
+
+| Change | Layer | n | Agree | Naive fail, paired pass | Naive pass, paired fail |
+|---|---|---|---|---|---|
+| baseline | end_state | 96 | 51 | 45 | 0 |
+| baseline | constraints | 96 | 42 | 54 | 0 |
+| baseline | three_artifact | 96 | 54 | 42 | 0 |
+| D | end_state | 95 | 52 | 43 | 0 |
+| D | constraints | 95 | 42 | 53 | 0 |
+| D | three_artifact | 95 | 55 | 40 | 0 |
+
+On the no-op control, a fork that restores the thread but not the world failed 42 of 96
+(44%) forkable pairs that the paired fork passed. Every one of those disagreements went
+the same way: a false fail.
+
+### Routing change (E)
+
+- A full rerun of E finds 29 three-artifact regressions. 24 of them are refunds issued on
+  ineligible damaged orders through E's fast path (I01, I03, I05, I06, I08, J02, J07 and N05,
+  all three trials).
+- The fork arm finds 1, because none of those 24 pairs has a fork point and each inherits
+  the baseline's pass.
+- The routing check flags exactly those 24 pairs as not forkable, and flags nothing for the
+  no-op control or D.
+- The remaining full-rerun regressions (4 on the control, 5 on D, 5 on E) are on pairs the
+  fork inherits. They are the noise floor of a fresh full rerun.
+
+A full rerun of the no-op control produced a reply identical to the baseline's in 0 of 165
+pairs, which confirms the full arm draws fresh.
+
 ## Part 1 results
 
 Measured run at commit `cc1b6f8b0fad2b79d51ed4e9694dcee34e3fd073`, LangGraph `1.2.12`. Policy

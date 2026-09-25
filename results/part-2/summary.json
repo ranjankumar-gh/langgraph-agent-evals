@@ -1,0 +1,579 @@
+{
+  "n_rows": 1650,
+  "crashed": 2,
+  "grading_errors": 0,
+  "changes": [
+    "baseline",
+    "D",
+    "E"
+  ],
+  "per_change": {
+    "baseline": {
+      "forkable_pairs": 96,
+      "inherited_pairs": 69,
+      "routing_flagged": 0,
+      "baseline_crashed_pairs": 0,
+      "cost": {
+        "full": {
+          "n": 95,
+          "excluded": 1,
+          "wall_s_total": 1894.8,
+          "wall_s_median": 18.63,
+          "policy_calls": 286,
+          "judge_calls": 95,
+          "input_tokens": 105859,
+          "output_tokens": 68313
+        },
+        "fork": {
+          "n": 95,
+          "excluded": 1,
+          "wall_s_total": 1495.9,
+          "wall_s_median": 14.51,
+          "policy_calls": 190,
+          "judge_calls": 95,
+          "input_tokens": 76744,
+          "output_tokens": 55637
+        }
+      },
+      "delta": {
+        "full": {
+          "three_artifact": {
+            "n": 96,
+            "mean": 0.0312,
+            "sd": 0.2273,
+            "ci95_case": [
+              0.0,
+              0.0625
+            ],
+            "width": 0.0625
+          },
+          "judge_score": {
+            "n": 96,
+            "mean": 0.0729,
+            "sd": 0.6843,
+            "ci95_case": [
+              -0.0312,
+              0.2083
+            ],
+            "width": 0.2396
+          }
+        },
+        "fork": {
+          "three_artifact": {
+            "n": 96,
+            "mean": 0.0208,
+            "sd": 0.2041,
+            "ci95_case": [
+              0.0,
+              0.0521
+            ],
+            "width": 0.0521
+          },
+          "judge_score": {
+            "n": 96,
+            "mean": 0.1562,
+            "sd": 0.8121,
+            "ci95_case": [
+              0.0104,
+              0.3438
+            ],
+            "width": 0.3333
+          }
+        }
+      },
+      "variance_ratio": {
+        "three_artifact": {
+          "n": 96,
+          "point": 0.8068,
+          "ci95_case": [
+            0.2582,
+            1.0
+          ],
+          "skipped_resamples": 24
+        },
+        "judge_score": {
+          "n": 96,
+          "point": 1.4083,
+          "ci95_case": [
+            0.9829,
+            2.8517
+          ],
+          "skipped_resamples": 0
+        }
+      },
+      "wrong_verdicts": {
+        "end_state": {
+          "n": 96,
+          "agree": 51,
+          "naive_fail_paired_pass": 45,
+          "naive_pass_paired_fail": 0,
+          "excluded": 0
+        },
+        "constraints": {
+          "n": 96,
+          "agree": 42,
+          "naive_fail_paired_pass": 54,
+          "naive_pass_paired_fail": 0,
+          "excluded": 0
+        },
+        "answer": {
+          "n": 96,
+          "agree": 93,
+          "naive_fail_paired_pass": 1,
+          "naive_pass_paired_fail": 2,
+          "excluded": 0
+        },
+        "three_artifact": {
+          "n": 96,
+          "agree": 54,
+          "naive_fail_paired_pass": 42,
+          "naive_pass_paired_fail": 0,
+          "excluded": 0
+        }
+      },
+      "routing": {
+        "full_regressions": [
+          "F08/t0",
+          "F08/t1",
+          "F08/t2",
+          "N03/t1",
+          "R02/t0"
+        ],
+        "fork_regressions": [
+          "R02/t0"
+        ],
+        "routing_flagged": [],
+        "hidden_by_fork": [
+          "F08/t0",
+          "F08/t1",
+          "F08/t2",
+          "N03/t1"
+        ],
+        "hidden_by_fast_path": [],
+        "hidden_and_flagged": []
+      }
+    },
+    "D": {
+      "forkable_pairs": 96,
+      "inherited_pairs": 69,
+      "routing_flagged": 0,
+      "baseline_crashed_pairs": 0,
+      "cost": {
+        "full": {
+          "n": 96,
+          "excluded": 0,
+          "wall_s_total": 2338.5,
+          "wall_s_median": 18.47,
+          "policy_calls": 287,
+          "judge_calls": 97,
+          "input_tokens": 107658,
+          "output_tokens": 66799
+        },
+        "fork": {
+          "n": 95,
+          "excluded": 1,
+          "wall_s_total": 1756.2,
+          "wall_s_median": 14.34,
+          "policy_calls": 189,
+          "judge_calls": 94,
+          "input_tokens": 77757,
+          "output_tokens": 56988
+        }
+      },
+      "delta": {
+        "full": {
+          "three_artifact": {
+            "n": 96,
+            "mean": 0.0208,
+            "sd": 0.2504,
+            "ci95_case": [
+              -0.0208,
+              0.0729
+            ],
+            "width": 0.0938
+          },
+          "judge_score": {
+            "n": 96,
+            "mean": 0.0312,
+            "sd": 0.8392,
+            "ci95_case": [
+              -0.125,
+              0.1875
+            ],
+            "width": 0.3125
+          }
+        },
+        "fork": {
+          "three_artifact": {
+            "n": 96,
+            "mean": 0.0104,
+            "sd": 0.2292,
+            "ci95_case": [
+              -0.0312,
+              0.0625
+            ],
+            "width": 0.0938
+          },
+          "judge_score": {
+            "n": 96,
+            "mean": 0.1979,
+            "sd": 0.9133,
+            "ci95_case": [
+              0.0208,
+              0.3958
+            ],
+            "width": 0.375
+          }
+        }
+      },
+      "variance_ratio": {
+        "three_artifact": {
+          "n": 96,
+          "point": 0.8374,
+          "ci95_case": [
+            0.3816,
+            1.6306
+          ],
+          "skipped_resamples": 1
+        },
+        "judge_score": {
+          "n": 96,
+          "point": 1.1843,
+          "ci95_case": [
+            0.6829,
+            2.2934
+          ],
+          "skipped_resamples": 0
+        }
+      },
+      "wrong_verdicts": {
+        "end_state": {
+          "n": 95,
+          "agree": 52,
+          "naive_fail_paired_pass": 43,
+          "naive_pass_paired_fail": 0,
+          "excluded": 1
+        },
+        "constraints": {
+          "n": 95,
+          "agree": 42,
+          "naive_fail_paired_pass": 53,
+          "naive_pass_paired_fail": 0,
+          "excluded": 1
+        },
+        "answer": {
+          "n": 95,
+          "agree": 93,
+          "naive_fail_paired_pass": 2,
+          "naive_pass_paired_fail": 0,
+          "excluded": 1
+        },
+        "three_artifact": {
+          "n": 95,
+          "agree": 55,
+          "naive_fail_paired_pass": 40,
+          "naive_pass_paired_fail": 0,
+          "excluded": 1
+        }
+      },
+      "routing": {
+        "full_regressions": [
+          "A01/t2",
+          "F01/t0",
+          "F08/t1",
+          "H03/t1",
+          "N02/t0",
+          "N03/t1"
+        ],
+        "fork_regressions": [
+          "A06/t1",
+          "H03/t1"
+        ],
+        "routing_flagged": [],
+        "hidden_by_fork": [
+          "A01/t2",
+          "F01/t0",
+          "F08/t1",
+          "N02/t0",
+          "N03/t1"
+        ],
+        "hidden_by_fast_path": [],
+        "hidden_and_flagged": []
+      }
+    },
+    "E": {
+      "forkable_pairs": 96,
+      "inherited_pairs": 69,
+      "routing_flagged": 24,
+      "baseline_crashed_pairs": 0,
+      "cost": {
+        "full": {
+          "n": 1,
+          "excluded": 95,
+          "wall_s_total": 15.2,
+          "wall_s_median": 15.2,
+          "policy_calls": 3,
+          "judge_calls": 1,
+          "input_tokens": 1106,
+          "output_tokens": 483
+        },
+        "fork": {
+          "n": 0,
+          "excluded": 96,
+          "wall_s_total": 0,
+          "wall_s_median": null,
+          "policy_calls": 0,
+          "judge_calls": 0,
+          "input_tokens": 0,
+          "output_tokens": 0
+        }
+      },
+      "delta": {
+        "full": {
+          "three_artifact": {
+            "n": 96,
+            "mean": 0.0312,
+            "sd": 0.2273,
+            "ci95_case": [
+              -0.0104,
+              0.0729
+            ],
+            "width": 0.0833
+          },
+          "judge_score": {
+            "n": 96,
+            "mean": 0.0729,
+            "sd": 0.729,
+            "ci95_case": [
+              -0.0521,
+              0.2188
+            ],
+            "width": 0.2708
+          }
+        },
+        "fork": {
+          "three_artifact": {
+            "n": 96,
+            "mean": 0.0208,
+            "sd": 0.2041,
+            "ci95_case": [
+              -0.0208,
+              0.0625
+            ],
+            "width": 0.0833
+          },
+          "judge_score": {
+            "n": 96,
+            "mean": 0.2396,
+            "sd": 0.8045,
+            "ci95_case": [
+              0.0938,
+              0.4167
+            ],
+            "width": 0.3229
+          }
+        }
+      },
+      "variance_ratio": {
+        "three_artifact": {
+          "n": 96,
+          "point": 0.8068,
+          "ci95_case": [
+            0.25,
+            2.0211
+          ],
+          "skipped_resamples": 6
+        },
+        "judge_score": {
+          "n": 96,
+          "point": 1.2179,
+          "ci95_case": [
+            0.6006,
+            2.7141
+          ],
+          "skipped_resamples": 0
+        }
+      },
+      "wrong_verdicts": {
+        "end_state": {
+          "n": 96,
+          "agree": 52,
+          "naive_fail_paired_pass": 44,
+          "naive_pass_paired_fail": 0,
+          "excluded": 0
+        },
+        "constraints": {
+          "n": 96,
+          "agree": 42,
+          "naive_fail_paired_pass": 54,
+          "naive_pass_paired_fail": 0,
+          "excluded": 0
+        },
+        "answer": {
+          "n": 96,
+          "agree": 94,
+          "naive_fail_paired_pass": 2,
+          "naive_pass_paired_fail": 0,
+          "excluded": 0
+        },
+        "three_artifact": {
+          "n": 96,
+          "agree": 55,
+          "naive_fail_paired_pass": 41,
+          "naive_pass_paired_fail": 0,
+          "excluded": 0
+        }
+      },
+      "routing": {
+        "full_regressions": [
+          "A01/t2",
+          "F01/t0",
+          "F08/t1",
+          "I01/t0",
+          "I01/t1",
+          "I01/t2",
+          "I03/t0",
+          "I03/t1",
+          "I03/t2",
+          "I05/t0",
+          "I05/t1",
+          "I05/t2",
+          "I06/t0",
+          "I06/t1",
+          "I06/t2",
+          "I08/t0",
+          "I08/t1",
+          "I08/t2",
+          "J02/t0",
+          "J02/t1",
+          "J02/t2",
+          "J07/t0",
+          "J07/t1",
+          "J07/t2",
+          "N02/t0",
+          "N03/t1",
+          "N05/t0",
+          "N05/t1",
+          "N05/t2"
+        ],
+        "fork_regressions": [
+          "A06/t1"
+        ],
+        "routing_flagged": [
+          "I01/t0",
+          "I01/t1",
+          "I01/t2",
+          "I03/t0",
+          "I03/t1",
+          "I03/t2",
+          "I05/t0",
+          "I05/t1",
+          "I05/t2",
+          "I06/t0",
+          "I06/t1",
+          "I06/t2",
+          "I08/t0",
+          "I08/t1",
+          "I08/t2",
+          "J02/t0",
+          "J02/t1",
+          "J02/t2",
+          "J07/t0",
+          "J07/t1",
+          "J07/t2",
+          "N05/t0",
+          "N05/t1",
+          "N05/t2"
+        ],
+        "hidden_by_fork": [
+          "A01/t2",
+          "F01/t0",
+          "F08/t1",
+          "I01/t0",
+          "I01/t1",
+          "I01/t2",
+          "I03/t0",
+          "I03/t1",
+          "I03/t2",
+          "I05/t0",
+          "I05/t1",
+          "I05/t2",
+          "I06/t0",
+          "I06/t1",
+          "I06/t2",
+          "I08/t0",
+          "I08/t1",
+          "I08/t2",
+          "J02/t0",
+          "J02/t1",
+          "J02/t2",
+          "J07/t0",
+          "J07/t1",
+          "J07/t2",
+          "N02/t0",
+          "N03/t1",
+          "N05/t0",
+          "N05/t1",
+          "N05/t2"
+        ],
+        "hidden_by_fast_path": [
+          "I01/t0",
+          "I01/t1",
+          "I01/t2",
+          "I03/t0",
+          "I03/t1",
+          "I03/t2",
+          "I05/t0",
+          "I05/t1",
+          "I05/t2",
+          "I06/t0",
+          "I06/t1",
+          "I06/t2",
+          "I08/t0",
+          "I08/t1",
+          "I08/t2",
+          "J02/t0",
+          "J02/t1",
+          "J02/t2",
+          "J07/t0",
+          "J07/t1",
+          "J07/t2",
+          "N05/t0",
+          "N05/t1",
+          "N05/t2"
+        ],
+        "hidden_and_flagged": [
+          "I01/t0",
+          "I01/t1",
+          "I01/t2",
+          "I03/t0",
+          "I03/t1",
+          "I03/t2",
+          "I05/t0",
+          "I05/t1",
+          "I05/t2",
+          "I06/t0",
+          "I06/t1",
+          "I06/t2",
+          "I08/t0",
+          "I08/t1",
+          "I08/t2",
+          "J02/t0",
+          "J02/t1",
+          "J02/t2",
+          "J07/t0",
+          "J07/t1",
+          "J07/t2",
+          "N05/t0",
+          "N05/t1",
+          "N05/t2"
+        ]
+      }
+    }
+  },
+  "full_control_identical_reply_rate": {
+    "k": 0,
+    "n": 165,
+    "rate": 0.0
+  }
+}
