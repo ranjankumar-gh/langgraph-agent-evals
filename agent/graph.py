@@ -32,11 +32,14 @@ MUTANTS = ("A", "B", "C", "C1", "C2")
 # Part 1.2: mutants authored by a session that never saw the evaluation
 # (docs/part-1.2-preregistration.md). Not in VARIANTS, so earlier runs and CLI defaults are unchanged.
 INDEPENDENT_MUTANTS = ("M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8")
+# Part 1.3: valid alternates authored by a session that never saw the evaluation
+# (docs/part-1.3-preregistration.md). Not in VARIANTS, so earlier runs and CLI defaults are unchanged.
+INDEPENDENT_VALID = ("V1", "V2", "V3", "V4", "V5", "V6")
 VARIANTS = VALID_VARIANTS + MUTANTS
 
 # Part 2 changes under test. Not part of VARIANTS, so Part 1's runs and CLI defaults are unchanged.
 CHANGES = ("D", "E")
-ALL_VARIANTS = VARIANTS + CHANGES + INDEPENDENT_MUTANTS
+ALL_VARIANTS = VARIANTS + CHANGES + INDEPENDENT_MUTANTS + INDEPENDENT_VALID
 # The node each change edits, i.e. where a fork of that change starts. "baseline" is the
 # no-op control change: forking the unchanged agent into itself.
 CHANGED_NODE = {"baseline": "compute_refund", "D": "compute_refund", "E": "compute_refund"}
@@ -83,17 +86,25 @@ def make_routers(variant: str, fired: list[str]) -> dict[str, Callable[[dict], s
     def after_classify(state: RefundState) -> str:
         if not state.get("order_id"):
             return "respond"
+        if variant == "V6":
+            return "gate"
         return "get_refund_history" if variant == "alt_history_early" else "lookup_order"
 
     def after_lookup(state: RefundState) -> str:
         if state.get("error"):
             return "respond"
+        if variant == "V2":
+            # V2: history was fetched together with the order, so go straight to eligibility.
+            return "check_eligibility"
+        if variant == "V4":
+            # V4: compute the refund speculatively while history and eligibility are read.
+            return "compute_refund"
         # M2 (reordered edge): eligibility is checked before refund history is read.
         return "check_eligibility" if variant in ("alt_history_early", "M2") else "get_refund_history"
 
     def after_history(state: RefundState) -> str:
         if state.get("error"):
-            return "respond"
+            return "discard_plan" if variant == "V4" else "respond"
         if variant == "alt_history_early":
             return "lookup_order"
         if variant == "M2":
@@ -104,6 +115,13 @@ def make_routers(variant: str, fired: list[str]) -> dict[str, Callable[[dict], s
         return "check_eligibility"
 
     def after_eligibility(state: RefundState) -> str:
+        if variant == "V4":
+            if state.get("error") or not state["eligibility"]["eligible"]:
+                return "discard_plan"
+            if state.get("refund_amount") is None:
+                # The speculative compute failed: compute again where the baseline does.
+                return "compute_refund"
+            return after_compute(state)
         if state.get("error"):
             return "respond"
         if state["eligibility"]["eligible"]:
@@ -116,6 +134,10 @@ def make_routers(variant: str, fired: list[str]) -> dict[str, Callable[[dict], s
         return "respond"
 
     def after_compute(state: RefundState) -> str:
+        if variant == "V4" and "eligibility" not in state:
+            return "get_refund_history"
+        if variant == "V5":
+            return "authorize_and_issue"
         return "request_approval" if state["refund_amount"] > APPROVAL_THRESHOLD else "issue_refund"
 
     def after_approval(state: RefundState) -> str:
@@ -126,6 +148,12 @@ def make_routers(variant: str, fired: list[str]) -> dict[str, Callable[[dict], s
             return "respond" if state.get("approval") == "rejected" else "issue_refund"
         return "issue_refund" if state.get("approval") == "approve" else "respond"
 
+    def after_gate(state: RefundState) -> str:
+        # V6: one conditional edge out of the gate.
+        if state.get("error") or not state.get("eligibility", {}).get("eligible"):
+            return "respond"
+        return "compute_refund"
+
     return {
         "classify_request": after_classify,
         "lookup_order": after_lookup,
@@ -133,7 +161,7 @@ def make_routers(variant: str, fired: list[str]) -> dict[str, Callable[[dict], s
         "check_eligibility": after_eligibility,
         "compute_refund": after_compute,
         "request_approval": after_approval,
-    }
+    } | ({"gate": after_gate} if variant == "V6" else {})
 
 
 def build_graph(variant: str, llm: LLM, tools: Tools, *, seed: int, fired: list[str], checkpointer):
@@ -151,9 +179,21 @@ def build_graph(variant: str, llm: LLM, tools: Tools, *, seed: int, fired: list[
         result = llm.structured(CLASSIFY_SYSTEM, state["messages"][-1].content, Classification, seed=seed)
         return {"intent": result.intent, "order_id": result.order_id}
 
-    def lookup_order(state: RefundState) -> dict:
+    def read(tool, *args):
+        """V1: retry a read tool once on a tool error; the second error propagates."""
         try:
-            order = tools.lookup_order(state["order_id"], state["customer_id"])
+            return tool(*args)
+        except ToolError:
+            if variant != "V1":
+                raise
+            fired.append(f"V1:retried_{tool.__name__}")
+            return tool(*args)
+
+    def lookup_order(state: RefundState) -> dict:
+        if variant == "V2":
+            return fetch_context(state)
+        try:
+            order = read(tools.lookup_order, state["order_id"], state["customer_id"])
         except ToolError as exc:
             return {"order": None, "error": str(exc)}
         if order is None and variant == "M3":
@@ -167,9 +207,30 @@ def build_graph(variant: str, llm: LLM, tools: Tools, *, seed: int, fired: list[
             return {"order": None, "error": f"no order {state['order_id']} was found for this customer"}
         return {"order": order}
 
+    def fetch_context(state: RefundState) -> dict:
+        # V2: order and refund history fetched together; the order result takes priority, and
+        # prior_refunds is written only when the run goes on to eligibility.
+        try:
+            order, order_exc = tools.lookup_order(state["order_id"], state["customer_id"]), None
+        except ToolError as exc:
+            order, order_exc = None, exc
+        try:
+            history, history_exc = tools.get_refund_history(state["customer_id"]), None
+        except ToolError as exc:
+            history, history_exc = None, exc
+        if order_exc is not None:
+            fired.append("V2:history_read_on_failed_lookup")
+            return {"order": None, "error": str(order_exc)}
+        if order is None:
+            fired.append("V2:history_read_on_failed_lookup")
+            return {"order": None, "error": f"no order {state['order_id']} was found for this customer"}
+        if history_exc is not None:
+            return {"order": order, "error": str(history_exc)}
+        return {"order": order, "prior_refunds": history}
+
     def get_refund_history(state: RefundState) -> dict:
         try:
-            return {"prior_refunds": tools.get_refund_history(state["customer_id"])}
+            return {"prior_refunds": read(tools.get_refund_history, state["customer_id"])}
         except ToolError as exc:
             return {"error": str(exc)}
 
@@ -204,9 +265,41 @@ def build_graph(variant: str, llm: LLM, tools: Tools, *, seed: int, fired: list[
             if delivered_on and (tools.today - date.fromisoformat(delivered_on)).days == REFUND_WINDOW_DAYS + 1:
                 fired.append("M1:window_off_by_one")
         try:
+            if variant == "V1":
+                return {"eligibility": read(tools.check_eligibility, state["order"], prior)}
             return {"eligibility": tools.check_eligibility(state["order"], prior, window_days=window)}
         except ToolError as exc:
             return {"error": str(exc)}
+
+    def gate(state: RefundState) -> dict:
+        # V6: lookup, history and eligibility in one node, same order and stop rules as today.
+        try:
+            order = tools.lookup_order(state["order_id"], state["customer_id"])
+        except ToolError as exc:
+            return {"order": None, "error": str(exc)}
+        if order is None:
+            return {"order": None, "error": f"no order {state['order_id']} was found for this customer"}
+        try:
+            history = tools.get_refund_history(state["customer_id"])
+        except ToolError as exc:
+            return {"order": order, "error": str(exc)}
+        try:
+            eligibility = tools.check_eligibility(order, history)
+        except ToolError as exc:
+            return {"order": order, "prior_refunds": history, "error": str(exc)}
+        return {"order": order, "prior_refunds": history, "eligibility": eligibility}
+
+    speculative_failure: list[Exception] = []
+
+    def discard_plan(state: RefundState) -> dict:
+        # V4: eligibility failed or errored, so the speculative plan never reaches the reply.
+        if state.get("refund_amount") is not None:
+            fired.append("V4:speculative_plan_discarded")
+        return {"refund_type": None, "refund_amount": None}
+
+    def check_speculation(state: RefundState) -> None:
+        if variant == "V4" and speculative_failure and state.get("refund_amount") is None:
+            raise speculative_failure[0]
 
     def compute_refund(state: RefundState) -> dict:
         if variant == "C":
@@ -218,7 +311,15 @@ def build_graph(variant: str, llm: LLM, tools: Tools, *, seed: int, fired: list[
             f"Order notes: {order['notes'] or '(none)'}"
         )
         system = COMPUTE_SYSTEM_D if variant in CHANGES else COMPUTE_SYSTEM
-        decision = llm.structured(system, user, RefundDecision, seed=seed)
+        if variant == "V4" and "eligibility" not in state:
+            # A failed speculative compute is ignored unless the order turns out eligible.
+            try:
+                decision = llm.structured(system, user, RefundDecision, seed=seed)
+            except Exception as exc:  # noqa: BLE001 - re-raised at the join if it matters
+                speculative_failure.append(exc)
+                return {}
+        else:
+            decision = llm.structured(system, user, RefundDecision, seed=seed)
         amount = refund_amount(decision.refund_type, order["price"])
         if variant == "M5":
             # M5: "normalised to int for the payments API".
@@ -234,7 +335,36 @@ def build_graph(variant: str, llm: LLM, tools: Tools, *, seed: int, fired: list[
         decision = interrupt({"order_id": state["order_id"], "amount": state["refund_amount"]})
         return {"approval": decision}
 
+    def authorize_and_issue(state: RefundState) -> dict:
+        # V5: approval and the write in one node. Only pure checks come before interrupt(),
+        # because the node re-runs from the top when the interrupt resumes.
+        if state.get("refund_id"):
+            return {}
+        update: dict = {}
+        if state["refund_amount"] > APPROVAL_THRESHOLD:
+            decision = interrupt({"order_id": state["order_id"], "amount": state["refund_amount"]})
+            update["approval"] = decision
+            if decision != "approve":
+                return update
+        try:
+            update["refund_id"] = tools.issue_refund(
+                state["order_id"], state["customer_id"], state["refund_type"], state["refund_amount"]
+            )
+        except ToolError as exc:
+            update["error"] = str(exc)
+        return update
+
+    def reconcile(state: RefundState) -> dict:
+        # V3: re-read refund history after the write, for logging only; never writes state.
+        fired.append("V3:reconcile_read")
+        try:
+            tools.get_refund_history(state["customer_id"])
+        except ToolError:
+            pass
+        return {}
+
     def issue_refund(state: RefundState) -> dict:
+        check_speculation(state)
         if variant == "C":
             redundant_lookup(state)
         if variant == "alt_recheck":
@@ -293,30 +423,85 @@ def build_graph(variant: str, llm: LLM, tools: Tools, *, seed: int, fired: list[
 
     routers = make_routers(variant, fired)
 
+    if variant == "V6":
+        return _assemble_v6(classify_request, gate, compute_refund, request_approval, issue_refund, respond,
+                            routers, checkpointer)
+    if variant == "V5":
+        return _assemble_v5(classify_request, lookup_order, get_refund_history, check_eligibility,
+                            compute_refund, authorize_and_issue, respond, routers, checkpointer)
+
     graph = StateGraph(RefundState)
     for node in (
         classify_request, lookup_order, get_refund_history, check_eligibility,
         compute_refund, request_approval, issue_refund, respond,
     ):
         graph.add_node(node.__name__, node)
+    if variant == "V4":
+        graph.add_node("discard_plan", discard_plan)
+        graph.add_edge("discard_plan", "respond")
+    if variant == "V3":
+        graph.add_node("reconcile", reconcile)
     graph.add_edge(START, "classify_request")
     graph.add_conditional_edges(
         "classify_request", routers["classify_request"], ["lookup_order", "get_refund_history", "respond"]
     )
+    v4 = ["discard_plan"] if variant == "V4" else []
     graph.add_conditional_edges(
-        "lookup_order", routers["lookup_order"], ["get_refund_history", "check_eligibility", "respond"]
+        "lookup_order", routers["lookup_order"],
+        ["get_refund_history", "check_eligibility", "respond"] + (["compute_refund"] if v4 else []),
     )
     graph.add_conditional_edges(
         "get_refund_history",
         routers["get_refund_history"],
-        ["lookup_order", "check_eligibility", "compute_refund", "respond"],
+        ["lookup_order", "check_eligibility", "compute_refund", "respond"] + v4,
     )
     graph.add_conditional_edges(
-        "check_eligibility", routers["check_eligibility"], ["compute_refund", "get_refund_history", "respond"]
+        "check_eligibility", routers["check_eligibility"],
+        ["compute_refund", "get_refund_history", "respond"] + (v4 + ["request_approval", "issue_refund"] if v4 else []),
     )
+    graph.add_conditional_edges(
+        "compute_refund", routers["compute_refund"],
+        ["request_approval", "issue_refund"] + (["get_refund_history"] if v4 else []),
+    )
+    graph.add_conditional_edges("request_approval", routers["request_approval"], ["issue_refund", "respond"])
+    if variant == "V3":
+        graph.add_edge("issue_refund", "reconcile")
+        graph.add_edge("reconcile", "respond")
+    else:
+        graph.add_edge("issue_refund", "respond")
+    graph.add_edge("respond", END)
+    return graph.compile(checkpointer=checkpointer)
+
+
+def _assemble_v6(classify_request, gate, compute_refund, request_approval, issue_refund, respond, routers,
+                 checkpointer):
+    graph = StateGraph(RefundState)
+    for node in (classify_request, gate, compute_refund, request_approval, issue_refund, respond):
+        graph.add_node(node.__name__, node)
+    graph.add_edge(START, "classify_request")
+    graph.add_conditional_edges("classify_request", routers["classify_request"], ["gate", "respond"])
+    graph.add_conditional_edges("gate", routers["gate"], ["compute_refund", "respond"])
     graph.add_conditional_edges("compute_refund", routers["compute_refund"], ["request_approval", "issue_refund"])
     graph.add_conditional_edges("request_approval", routers["request_approval"], ["issue_refund", "respond"])
     graph.add_edge("issue_refund", "respond")
+    graph.add_edge("respond", END)
+    return graph.compile(checkpointer=checkpointer)
+
+
+def _assemble_v5(classify_request, lookup_order, get_refund_history, check_eligibility, compute_refund,
+                 authorize_and_issue, respond, routers, checkpointer):
+    graph = StateGraph(RefundState)
+    for node in (classify_request, lookup_order, get_refund_history, check_eligibility, compute_refund,
+                 authorize_and_issue, respond):
+        graph.add_node(node.__name__, node)
+    graph.add_edge(START, "classify_request")
+    graph.add_conditional_edges("classify_request", routers["classify_request"], ["lookup_order", "respond"])
+    graph.add_conditional_edges("lookup_order", routers["lookup_order"], ["get_refund_history", "respond"])
+    graph.add_conditional_edges("get_refund_history", routers["get_refund_history"],
+                                ["check_eligibility", "respond"])
+    graph.add_conditional_edges("check_eligibility", routers["check_eligibility"], ["compute_refund", "respond"])
+    graph.add_conditional_edges("compute_refund", routers["compute_refund"], ["authorize_and_issue"])
+    graph.add_edge("authorize_and_issue", "respond")
     graph.add_edge("respond", END)
     return graph.compile(checkpointer=checkpointer)
 
