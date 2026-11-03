@@ -80,15 +80,19 @@ class Tools:
             _lookups=snap.lookups,
         )
 
-    def lookup_order(self, order_id: str, customer_id: str) -> dict | None:
+    def lookup_order(self, order_id: str, customer_id: str | None) -> dict | None:
+        """customer_id=None skips the owner filter; only mutant M3 passes it."""
         self._enter("lookup_order", {"order_id": order_id})
         self._lookups += 1
         if self._lookups > 1 and self.reprice_on_reread is not None:
             self.conn.execute("UPDATE orders SET price = ? WHERE order_id = ?", (self.reprice_on_reread, order_id))
             self.conn.commit()
-        row = self.conn.execute(
-            "SELECT * FROM orders WHERE order_id = ? AND customer_id = ?", (order_id, customer_id)
-        ).fetchone()
+        if customer_id is None:
+            row = self.conn.execute("SELECT * FROM orders WHERE order_id = ?", (order_id,)).fetchone()
+        else:
+            row = self.conn.execute(
+                "SELECT * FROM orders WHERE order_id = ? AND customer_id = ?", (order_id, customer_id)
+            ).fetchone()
         return dict(row) if row else None
 
     def get_refund_history(self, customer_id: str) -> int:
@@ -99,14 +103,14 @@ class Tools:
         ).fetchone()
         return count
 
-    def check_eligibility(self, order: dict, prior_refunds: int) -> dict:
+    def check_eligibility(self, order: dict, prior_refunds: int, window_days: int = REFUND_WINDOW_DAYS) -> dict:
         self._enter("check_eligibility", {"order_id": order["order_id"], "prior_refunds": prior_refunds})
         if order["delivered_on"] is None:
             return {"eligible": False, "reason": "the order has not been delivered yet"}
         if order["category"] in EXCLUDED_CATEGORIES:
             return {"eligible": False, "reason": f"{order['category']} items are not refundable"}
         age = (self.today - date.fromisoformat(order["delivered_on"])).days
-        if age > REFUND_WINDOW_DAYS:
+        if age > window_days:
             return {"eligible": False, "reason": f"the {REFUND_WINDOW_DAYS}-day refund window has passed"}
         if prior_refunds >= MAX_PRIOR_REFUNDS:
             return {"eligible": False, "reason": "the refund limit for the last 90 days has been reached"}

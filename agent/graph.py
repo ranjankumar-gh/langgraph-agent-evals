@@ -22,16 +22,21 @@ from agent.prompts import (
     RefundDecision,
 )
 from agent.state import RefundState
-from agent.tools import ToolError, Tools
+from datetime import date
+
+from agent.tools import REFUND_WINDOW_DAYS, ToolError, Tools
 
 APPROVAL_THRESHOLD = 1000.0
 VALID_VARIANTS = ("baseline", "alt_history_early", "alt_recheck", "alt_verify")
 MUTANTS = ("A", "B", "C", "C1", "C2")
+# Part 1.2: mutants authored by a session that never saw the evaluation
+# (docs/part-1.2-preregistration.md). Not in VARIANTS, so earlier runs and CLI defaults are unchanged.
+INDEPENDENT_MUTANTS = ("M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8")
 VARIANTS = VALID_VARIANTS + MUTANTS
 
 # Part 2 changes under test. Not part of VARIANTS, so Part 1's runs and CLI defaults are unchanged.
 CHANGES = ("D", "E")
-ALL_VARIANTS = VARIANTS + CHANGES
+ALL_VARIANTS = VARIANTS + CHANGES + INDEPENDENT_MUTANTS
 # The node each change edits, i.e. where a fork of that change starts. "baseline" is the
 # no-op control change: forking the unchanged agent into itself.
 CHANGED_NODE = {"baseline": "compute_refund", "D": "compute_refund", "E": "compute_refund"}
@@ -41,7 +46,7 @@ def refund_amount(refund_type: str, price: float) -> float:
     return round(price * 0.5, 2) if refund_type == "partial" else round(price, 2)
 
 
-def render_facts(state: dict, *, status_from_plan: bool = False) -> str:
+def render_facts(state: dict, *, status_from_plan: bool = False, amount_from_price: bool = False) -> str:
     lines = [f"Customer message: {state['messages'][0].content}"]
     if not state.get("order_id"):
         lines.append("Order id: not provided")
@@ -53,7 +58,9 @@ def render_facts(state: dict, *, status_from_plan: bool = False) -> str:
     if eligibility and not eligibility["eligible"]:
         lines.append(f"Eligibility: not eligible - {eligibility['reason']}")
     if state.get("refund_amount") is not None:
-        lines.append(f"Planned refund: {state['refund_type']} of {state['refund_amount']:.2f}")
+        # M8: a stale variable renders the order price instead of the planned amount.
+        shown = state["order"]["price"] if amount_from_price and state.get("order") else state["refund_amount"]
+        lines.append(f"Planned refund: {state['refund_type']} of {shown:.2f}")
     if state.get("approval") == "reject":
         lines.append("Approval: rejected by a supervisor")
     if status_from_plan:
@@ -81,13 +88,16 @@ def make_routers(variant: str, fired: list[str]) -> dict[str, Callable[[dict], s
     def after_lookup(state: RefundState) -> str:
         if state.get("error"):
             return "respond"
-        return "check_eligibility" if variant == "alt_history_early" else "get_refund_history"
+        # M2 (reordered edge): eligibility is checked before refund history is read.
+        return "check_eligibility" if variant in ("alt_history_early", "M2") else "get_refund_history"
 
     def after_history(state: RefundState) -> str:
         if state.get("error"):
             return "respond"
         if variant == "alt_history_early":
             return "lookup_order"
+        if variant == "M2":
+            return "compute_refund"
         if variant == "A" and state.get("intent") == "damaged":
             fired.append("A:skipped_eligibility")
             return "compute_refund"
@@ -97,7 +107,7 @@ def make_routers(variant: str, fired: list[str]) -> dict[str, Callable[[dict], s
         if state.get("error"):
             return "respond"
         if state["eligibility"]["eligible"]:
-            return "compute_refund"
+            return "get_refund_history" if variant == "M2" else "compute_refund"
         if variant == "E" and state.get("intent") == "damaged":
             # Change E: a "damaged items fast path" shipped in the same PR as D's prompt change.
             # It routes ineligible damaged orders into compute_refund instead of refusing them.
@@ -109,6 +119,11 @@ def make_routers(variant: str, fired: list[str]) -> dict[str, Callable[[dict], s
         return "request_approval" if state["refund_amount"] > APPROVAL_THRESHOLD else "issue_refund"
 
     def after_approval(state: RefundState) -> str:
+        if variant == "M4":
+            # M4: compares against the wrong literal; the interrupt resumes with "reject".
+            if state.get("approval") == "reject":
+                fired.append("M4:rejection_not_honoured")
+            return "respond" if state.get("approval") == "rejected" else "issue_refund"
         return "issue_refund" if state.get("approval") == "approve" else "respond"
 
     return {
@@ -141,6 +156,13 @@ def build_graph(variant: str, llm: LLM, tools: Tools, *, seed: int, fired: list[
             order = tools.lookup_order(state["order_id"], state["customer_id"])
         except ToolError as exc:
             return {"order": None, "error": str(exc)}
+        if order is None and variant == "M3":
+            # M3: "guest checkout" fallback - looks the order up without the owner filter.
+            fired.append("M3:ownerless_lookup")
+            try:
+                order = tools.lookup_order(state["order_id"], None)
+            except ToolError as exc:
+                return {"order": None, "error": str(exc)}
         if order is None:
             return {"order": None, "error": f"no order {state['order_id']} was found for this customer"}
         return {"order": order}
@@ -168,8 +190,21 @@ def build_graph(variant: str, llm: LLM, tools: Tools, *, seed: int, fired: list[
                 tools.get_refund_history(state["customer_id"])
             except ToolError:
                 pass
+        window = REFUND_WINDOW_DAYS
+        if variant == "M2":
+            # M2: history has not been read yet, so the count defaults to 0.
+            fired.append("M2:eligibility_before_history")
+            prior = state.get("prior_refunds") or 0
+        else:
+            prior = state["prior_refunds"]
+        if variant == "M1":
+            # M1: off-by-one "timezone slop" on the 30-day window.
+            window = REFUND_WINDOW_DAYS + 1
+            delivered_on = state["order"].get("delivered_on")
+            if delivered_on and (tools.today - date.fromisoformat(delivered_on)).days == REFUND_WINDOW_DAYS + 1:
+                fired.append("M1:window_off_by_one")
         try:
-            return {"eligibility": tools.check_eligibility(state["order"], state["prior_refunds"])}
+            return {"eligibility": tools.check_eligibility(state["order"], prior, window_days=window)}
         except ToolError as exc:
             return {"error": str(exc)}
 
@@ -184,10 +219,15 @@ def build_graph(variant: str, llm: LLM, tools: Tools, *, seed: int, fired: list[
         )
         system = COMPUTE_SYSTEM_D if variant in CHANGES else COMPUTE_SYSTEM
         decision = llm.structured(system, user, RefundDecision, seed=seed)
-        return {
-            "refund_type": decision.refund_type,
-            "refund_amount": refund_amount(decision.refund_type, order["price"]),
-        }
+        amount = refund_amount(decision.refund_type, order["price"])
+        if variant == "M5":
+            # M5: "normalised to int for the payments API".
+            half = order["price"] * 0.5
+            truncated = float(int(half)) if decision.refund_type == "partial" else float(int(order["price"]))
+            if truncated != amount:
+                fired.append("M5:amount_truncated")
+            amount = truncated
+        return {"refund_type": decision.refund_type, "refund_amount": amount}
 
     def request_approval(state: RefundState) -> dict:
         # No tool calls in this node: its body re-runs from the top when the interrupt resumes.
@@ -213,12 +253,27 @@ def build_graph(variant: str, llm: LLM, tools: Tools, *, seed: int, fired: list[
                 now = "missing" if current is None else f"{current['price']:.2f}"
                 return {"error": f"the order changed after it was first read (price {before:.2f} -> {now}); "
                                   f"refund not issued"}
+        refund_type = state["refund_type"]
+        if variant == "M6":
+            # M6: refund_type dropped in a refactor; the payments default "full" applies.
+            if refund_type != "full":
+                fired.append("M6:refund_type_dropped")
+            refund_type = "full"
         try:
             refund_id = tools.issue_refund(
-                state["order_id"], state["customer_id"], state["refund_type"], state["refund_amount"]
+                state["order_id"], state["customer_id"], refund_type, state["refund_amount"]
             )
         except ToolError as exc:
-            return {"error": str(exc)}
+            if variant != "M7":
+                return {"error": str(exc)}
+            # M7: one blind retry for "flaky payments", no idempotency key.
+            fired.append("M7:blind_retry")
+            try:
+                refund_id = tools.issue_refund(
+                    state["order_id"], state["customer_id"], refund_type, state["refund_amount"]
+                )
+            except ToolError as exc2:
+                return {"error": str(exc2)}
         return {"refund_id": refund_id}
 
     def respond(state: RefundState) -> dict:
@@ -230,7 +285,10 @@ def build_graph(variant: str, llm: LLM, tools: Tools, *, seed: int, fired: list[
         )
         if false_success:
             fired.append("B:false_success")
-        facts = render_facts(state, status_from_plan=bool(false_success))
+        partial_planned = state.get("refund_type") == "partial" and state.get("refund_amount") is not None
+        if variant == "M8" and partial_planned:
+            fired.append("M8:price_rendered_as_amount")
+        facts = render_facts(state, status_from_plan=bool(false_success), amount_from_price=variant == "M8")
         return {"messages": [AIMessage(content=llm.text(RESPOND_SYSTEM, facts, seed=seed))]}
 
     routers = make_routers(variant, fired)
@@ -253,7 +311,9 @@ def build_graph(variant: str, llm: LLM, tools: Tools, *, seed: int, fired: list[
         routers["get_refund_history"],
         ["lookup_order", "check_eligibility", "compute_refund", "respond"],
     )
-    graph.add_conditional_edges("check_eligibility", routers["check_eligibility"], ["compute_refund", "respond"])
+    graph.add_conditional_edges(
+        "check_eligibility", routers["check_eligibility"], ["compute_refund", "get_refund_history", "respond"]
+    )
     graph.add_conditional_edges("compute_refund", routers["compute_refund"], ["request_approval", "issue_refund"])
     graph.add_conditional_edges("request_approval", routers["request_approval"], ["issue_refund", "respond"])
     graph.add_edge("issue_refund", "respond")
