@@ -555,3 +555,53 @@ tested against faults it was not written for.
 On the `changed_order` cases the answer layer passed `alt_verify` in only 4 of 9 runs: the judge
 scored five correct no-refund replies 2-3 of 5, mostly for not asking the customer to confirm.
 That is a grader finding for Part 3, not a trajectory result.
+
+## Part 1.2: independently authored mutants
+
+Measured at commit `5a2dc9b` (k=3, 55 cases x 12 variants = 1980 runs, 6 crashed on valid
+variants, 0 grading errors) in [`results/part-1.2/`](results/part-1.2/). The predictions in
+[`docs/part-1.2-preregistration.md`](docs/part-1.2-preregistration.md) were committed (`5c8b827`)
+before the mutants existed. Mutants M1-M8 were designed by a session that never saw the cases,
+constraints, match modes, position rules or results.
+
+**This is a fresh measurement, not a replay.** Both Ollama Cloud models changed digest after
+`part-1` (`nemotron-3-nano:30b-cloud` `6fe6f05` -> `2fd759a`, `gpt-oss:20b-cloud` `cc40af1` ->
+`9a01793`), so the part-1 cache cannot be reused. Every mutant is compared against this run's
+own baseline. The valid-variant pattern from `part-1` holds on the new digests: `strict` rejects
+94% of `alt_history_early`, and `strict`/`unordered`/`subset` reject 41% of `alt_recheck` and 39%
+of `alt_verify`; the per-case constraints and `superset` reject none.
+
+Survival on fired (case, trial) pairs whose baseline passes the same harness, from
+[`results/part-1.2/independent-mutants.md`](results/part-1.2/independent-mutants.md) (M7
+excluded from the total, as pre-registered):
+
+| Harness | M1 | M2 | M3 | M4 | M5 | M6 | M8 | total |
+|---|---|---|---|---|---|---|---|---|
+| answer only | 0/3 | 104/113 | 9/12 | 1/16 | 3/12 | 30/30 | 2/18 | 149/204 |
+| end state + answer + `strict` | 0/3 | 0/111 | 0/12 | 0/16 | 3/12 | 8/28 | 2/18 | 13/200 |
+| ... + `unordered` | 0/3 | 72/111 | 0/12 | 0/16 | 3/12 | 8/28 | 2/18 | 85/200 |
+| ... + `subset` | 0/3 | 102/111 | 0/12 | 0/16 | 3/12 | 8/28 | 2/18 | 115/200 |
+| ... + `superset` | 0/3 | 72/111 | 9/12 | 0/16 | 3/12 | 8/28 | 2/18 | 94/200 |
+| three layers (per-case constraints) | 0/3 | 0/111 | 9/12 | 0/16 | 3/12 | 8/28 | 2/18 | 22/200 |
+| three layers + `any_read_or_stop` | 0/3 | 0/111 | 9/12 | 0/16 | 3/12 | 8/28 | 2/18 | 22/200 |
+
+The full results against each pre-registered expectation are in
+[`docs/part-1.2-results.md`](docs/part-1.2-results.md). In short:
+
+- **The direction table predicted every mode verdict** (0 mismatches over all non-crashed runs).
+- **Every counted mutant shares a direction set with a valid variant.** M2 (eligibility before
+  history) is a pure reordering on eligible paths, the same direction as `alt_history_early`:
+  `unordered`, `subset` and `superset` pass all 87 of those runs, `strict` catches them only by
+  also rejecting 94% of `alt_history_early`, and the per-case ordering constraint catches all
+  111 while rejecting none of the `alt_history_early` runs whose end state and answer pass.
+- **Where a fault changed the end state, the three-layer harness caught it every time.** All 22
+  three-layer survivors are fires that left the outcome correct: M3's fallback on N01-N03 found
+  no order either, M5/M6 ran on F02/F03 where `issue_refund` then failed, and M6 forced `full` on
+  A04 where `full` is acceptable.
+- **One survivor is a real miss in the reply.** M8 on F03 told the customer their partial refund
+  was 49.00 (the price; the planned amount was 24.50) and the judge passed it in 2 of 3 trials.
+  The failure-case answer reference does not pin the amount.
+- **Pre-registered expectations 4 and 5 failed as written**: they listed N04 as M3's only firing
+  case and M8 as the only possible three-layer survivor. The fire definition ("the fallback
+  runs") also fires on N01-N03, and the definitions of M5/M6 fire before a tool error can stop
+  the refund.
