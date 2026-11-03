@@ -18,8 +18,8 @@ implemented. Numbers: `results/part-1.2/independent-mutants.md`.
 | M7 | tool-failure refunds | F01-F05 | 15 | 0 (excluded, as pre-registered) |
 | M8 | any partial | A06, R04, X02, H03, H04, H10, F03 | 21 | 3 |
 
-M1 cannot fire on I03 *and* leave M5 to fire there: I03 is ineligible, so `compute_refund` never
-runs; the pre-registration listed I03 for M5 by mistake. F03 (a partial on a failing
+The pre-registration listed I03 for M5 by mistake: I03 is ineligible, so `compute_refund` never
+runs there. F03 (a partial on a failing
 `issue_refund`) was not listed for M5 or M8.
 
 ## Expectations
