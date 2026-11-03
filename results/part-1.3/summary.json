@@ -1,0 +1,1285 @@
+{
+  "n_runs": 1155,
+  "crashed": 0,
+  "grading_errors": 0,
+  "harness_pass": {
+    "baseline": {
+      "answer_only": {
+        "k": 142,
+        "n": 165,
+        "rate": 0.8606060606060606,
+        "ci95": [
+          0.7995164791907186,
+          0.9052861286973848
+        ],
+        "ci95_case": [
+          0.7757575757575758,
+          0.9393939393939394
+        ]
+      },
+      "three_artifact": {
+        "k": 140,
+        "n": 165,
+        "rate": 0.8484848484848485,
+        "ci95": [
+          0.7858940538883293,
+          0.8952177100371487
+        ],
+        "ci95_case": [
+          0.7636363636363637,
+          0.9272727272727272
+        ]
+      },
+      "mode:strict": {
+        "k": 140,
+        "n": 165,
+        "rate": 0.8484848484848485,
+        "ci95": [
+          0.7858940538883293,
+          0.8952177100371487
+        ],
+        "ci95_case": [
+          0.7636363636363637,
+          0.9272727272727272
+        ]
+      },
+      "mode:unordered": {
+        "k": 140,
+        "n": 165,
+        "rate": 0.8484848484848485,
+        "ci95": [
+          0.7858940538883293,
+          0.8952177100371487
+        ],
+        "ci95_case": [
+          0.7636363636363637,
+          0.9272727272727272
+        ]
+      },
+      "mode:subset": {
+        "k": 140,
+        "n": 165,
+        "rate": 0.8484848484848485,
+        "ci95": [
+          0.7858940538883293,
+          0.8952177100371487
+        ],
+        "ci95_case": [
+          0.7636363636363637,
+          0.9272727272727272
+        ]
+      },
+      "mode:superset": {
+        "k": 140,
+        "n": 165,
+        "rate": 0.8484848484848485,
+        "ci95": [
+          0.7858940538883293,
+          0.8952177100371487
+        ],
+        "ci95_case": [
+          0.7636363636363637,
+          0.9272727272727272
+        ]
+      }
+    }
+  },
+  "tbp": {
+    "baseline": {
+      "k": 2,
+      "n": 142,
+      "rate": 0.014084507042253521,
+      "ci95": [
+        0.0038709351215819483,
+        0.04989698843383708
+      ],
+      "ci95_case": [
+        0.0,
+        0.043478260869565216
+      ]
+    },
+    "all": {
+      "k": 14,
+      "n": 994,
+      "rate": 0.014084507042253521,
+      "ci95": [
+        0.008408053304265632,
+        0.02350242226620567
+      ],
+      "ci95_case": [
+        0.0,
+        0.043478260869565216
+      ]
+    }
+  },
+  "mutant_survival": {},
+  "mutant_survival_unconditional": {},
+  "brittle_fail": {
+    "baseline": {
+      "constraints": {
+        "k": 0,
+        "n": 140,
+        "rate": 0.0,
+        "ci95": [
+          0.0,
+          0.02670715564899167
+        ],
+        "ci95_case": [
+          0.0,
+          0.0
+        ]
+      },
+      "strict": {
+        "k": 0,
+        "n": 140,
+        "rate": 0.0,
+        "ci95": [
+          0.0,
+          0.02670715564899167
+        ],
+        "ci95_case": [
+          0.0,
+          0.0
+        ]
+      },
+      "unordered": {
+        "k": 0,
+        "n": 140,
+        "rate": 0.0,
+        "ci95": [
+          0.0,
+          0.02670715564899167
+        ],
+        "ci95_case": [
+          0.0,
+          0.0
+        ]
+      },
+      "subset": {
+        "k": 0,
+        "n": 140,
+        "rate": 0.0,
+        "ci95": [
+          0.0,
+          0.02670715564899167
+        ],
+        "ci95_case": [
+          0.0,
+          0.0
+        ]
+      },
+      "superset": {
+        "k": 0,
+        "n": 140,
+        "rate": 0.0,
+        "ci95": [
+          0.0,
+          0.02670715564899167
+        ],
+        "ci95_case": [
+          0.0,
+          0.0
+        ]
+      }
+    }
+  },
+  "slices": {
+    "ambiguous": {
+      "mutant_survival": {
+        "answer_only": {
+          "k": 0,
+          "n": 0,
+          "rate": null,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "ci95_case": [
+            0.0,
+            0.0
+          ],
+          "excluded_no_baseline": 0,
+          "excluded_baseline_failed": 0
+        },
+        "three_artifact": {
+          "k": 0,
+          "n": 0,
+          "rate": null,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "ci95_case": [
+            0.0,
+            0.0
+          ],
+          "excluded_no_baseline": 0,
+          "excluded_baseline_failed": 0
+        }
+      },
+      "mutant_survival_unconditional": {
+        "answer_only": {
+          "k": 0,
+          "n": 0,
+          "rate": null,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "ci95_case": [
+            0.0,
+            0.0
+          ]
+        },
+        "three_artifact": {
+          "k": 0,
+          "n": 0,
+          "rate": null,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "ci95_case": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "tbp": {
+        "k": 0,
+        "n": 119,
+        "rate": 0.0,
+        "ci95": [
+          3.469446951953614e-18,
+          0.03127279358132749
+        ],
+        "ci95_case": [
+          0.0,
+          0.0
+        ]
+      },
+      "brittle_fail": {
+        "baseline": {
+          "constraints": {
+            "k": 0,
+            "n": 17,
+            "rate": 0.0,
+            "ci95": [
+              0.0,
+              0.18432366037156456
+            ],
+            "ci95_case": [
+              0.0,
+              0.0
+            ]
+          },
+          "strict": {
+            "k": 0,
+            "n": 17,
+            "rate": 0.0,
+            "ci95": [
+              0.0,
+              0.18432366037156456
+            ],
+            "ci95_case": [
+              0.0,
+              0.0
+            ]
+          },
+          "unordered": {
+            "k": 0,
+            "n": 17,
+            "rate": 0.0,
+            "ci95": [
+              0.0,
+              0.18432366037156456
+            ],
+            "ci95_case": [
+              0.0,
+              0.0
+            ]
+          },
+          "subset": {
+            "k": 0,
+            "n": 17,
+            "rate": 0.0,
+            "ci95": [
+              0.0,
+              0.18432366037156456
+            ],
+            "ci95_case": [
+              0.0,
+              0.0
+            ]
+          },
+          "superset": {
+            "k": 0,
+            "n": 17,
+            "rate": 0.0,
+            "ci95": [
+              0.0,
+              0.18432366037156456
+            ],
+            "ci95_case": [
+              0.0,
+              0.0
+            ]
+          }
+        }
+      }
+    },
+    "approval_rejected": {
+      "mutant_survival": {
+        "answer_only": {
+          "k": 0,
+          "n": 0,
+          "rate": null,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "ci95_case": [
+            0.0,
+            0.0
+          ],
+          "excluded_no_baseline": 0,
+          "excluded_baseline_failed": 0
+        },
+        "three_artifact": {
+          "k": 0,
+          "n": 0,
+          "rate": null,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "ci95_case": [
+            0.0,
+            0.0
+          ],
+          "excluded_no_baseline": 0,
+          "excluded_baseline_failed": 0
+        }
+      },
+      "mutant_survival_unconditional": {
+        "answer_only": {
+          "k": 0,
+          "n": 0,
+          "rate": null,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "ci95_case": [
+            0.0,
+            0.0
+          ]
+        },
+        "three_artifact": {
+          "k": 0,
+          "n": 0,
+          "rate": null,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "ci95_case": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "tbp": {
+        "k": 0,
+        "n": 112,
+        "rate": 0.0,
+        "ci95": [
+          0.0,
+          0.03316252537948371
+        ],
+        "ci95_case": [
+          0.0,
+          0.0
+        ]
+      },
+      "brittle_fail": {
+        "baseline": {
+          "constraints": {
+            "k": 0,
+            "n": 16,
+            "rate": 0.0,
+            "ci95": [
+              0.0,
+              0.19361341827271994
+            ],
+            "ci95_case": [
+              0.0,
+              0.0
+            ]
+          },
+          "strict": {
+            "k": 0,
+            "n": 16,
+            "rate": 0.0,
+            "ci95": [
+              0.0,
+              0.19361341827271994
+            ],
+            "ci95_case": [
+              0.0,
+              0.0
+            ]
+          },
+          "unordered": {
+            "k": 0,
+            "n": 16,
+            "rate": 0.0,
+            "ci95": [
+              0.0,
+              0.19361341827271994
+            ],
+            "ci95_case": [
+              0.0,
+              0.0
+            ]
+          },
+          "subset": {
+            "k": 0,
+            "n": 16,
+            "rate": 0.0,
+            "ci95": [
+              0.0,
+              0.19361341827271994
+            ],
+            "ci95_case": [
+              0.0,
+              0.0
+            ]
+          },
+          "superset": {
+            "k": 0,
+            "n": 16,
+            "rate": 0.0,
+            "ci95": [
+              0.0,
+              0.19361341827271994
+            ],
+            "ci95_case": [
+              0.0,
+              0.0
+            ]
+          }
+        }
+      }
+    },
+    "changed_order": {
+      "mutant_survival": {
+        "answer_only": {
+          "k": 0,
+          "n": 0,
+          "rate": null,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "ci95_case": [
+            0.0,
+            0.0
+          ],
+          "excluded_no_baseline": 0,
+          "excluded_baseline_failed": 0
+        },
+        "three_artifact": {
+          "k": 0,
+          "n": 0,
+          "rate": null,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "ci95_case": [
+            0.0,
+            0.0
+          ],
+          "excluded_no_baseline": 0,
+          "excluded_baseline_failed": 0
+        }
+      },
+      "mutant_survival_unconditional": {
+        "answer_only": {
+          "k": 0,
+          "n": 0,
+          "rate": null,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "ci95_case": [
+            0.0,
+            0.0
+          ]
+        },
+        "three_artifact": {
+          "k": 0,
+          "n": 0,
+          "rate": null,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "ci95_case": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "tbp": {
+        "k": 0,
+        "n": 0,
+        "rate": null,
+        "ci95": [
+          0.0,
+          0.0
+        ],
+        "ci95_case": [
+          0.0,
+          0.0
+        ]
+      },
+      "brittle_fail": {}
+    },
+    "happy": {
+      "mutant_survival": {
+        "answer_only": {
+          "k": 0,
+          "n": 0,
+          "rate": null,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "ci95_case": [
+            0.0,
+            0.0
+          ],
+          "excluded_no_baseline": 0,
+          "excluded_baseline_failed": 0
+        },
+        "three_artifact": {
+          "k": 0,
+          "n": 0,
+          "rate": null,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "ci95_case": [
+            0.0,
+            0.0
+          ],
+          "excluded_no_baseline": 0,
+          "excluded_baseline_failed": 0
+        }
+      },
+      "mutant_survival_unconditional": {
+        "answer_only": {
+          "k": 0,
+          "n": 0,
+          "rate": null,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "ci95_case": [
+            0.0,
+            0.0
+          ]
+        },
+        "three_artifact": {
+          "k": 0,
+          "n": 0,
+          "rate": null,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "ci95_case": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "tbp": {
+        "k": 0,
+        "n": 210,
+        "rate": 0.0,
+        "ci95": [
+          0.0,
+          0.017964699104383804
+        ],
+        "ci95_case": [
+          0.0,
+          0.0
+        ]
+      },
+      "brittle_fail": {
+        "baseline": {
+          "constraints": {
+            "k": 0,
+            "n": 30,
+            "rate": 0.0,
+            "ci95": [
+              0.0,
+              0.113517091390478
+            ],
+            "ci95_case": [
+              0.0,
+              0.0
+            ]
+          },
+          "strict": {
+            "k": 0,
+            "n": 30,
+            "rate": 0.0,
+            "ci95": [
+              0.0,
+              0.113517091390478
+            ],
+            "ci95_case": [
+              0.0,
+              0.0
+            ]
+          },
+          "unordered": {
+            "k": 0,
+            "n": 30,
+            "rate": 0.0,
+            "ci95": [
+              0.0,
+              0.113517091390478
+            ],
+            "ci95_case": [
+              0.0,
+              0.0
+            ]
+          },
+          "subset": {
+            "k": 0,
+            "n": 30,
+            "rate": 0.0,
+            "ci95": [
+              0.0,
+              0.113517091390478
+            ],
+            "ci95_case": [
+              0.0,
+              0.0
+            ]
+          },
+          "superset": {
+            "k": 0,
+            "n": 30,
+            "rate": 0.0,
+            "ci95": [
+              0.0,
+              0.113517091390478
+            ],
+            "ci95_case": [
+              0.0,
+              0.0
+            ]
+          }
+        }
+      }
+    },
+    "ineligible": {
+      "mutant_survival": {
+        "answer_only": {
+          "k": 0,
+          "n": 0,
+          "rate": null,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "ci95_case": [
+            0.0,
+            0.0
+          ],
+          "excluded_no_baseline": 0,
+          "excluded_baseline_failed": 0
+        },
+        "three_artifact": {
+          "k": 0,
+          "n": 0,
+          "rate": null,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "ci95_case": [
+            0.0,
+            0.0
+          ],
+          "excluded_no_baseline": 0,
+          "excluded_baseline_failed": 0
+        }
+      },
+      "mutant_survival_unconditional": {
+        "answer_only": {
+          "k": 0,
+          "n": 0,
+          "rate": null,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "ci95_case": [
+            0.0,
+            0.0
+          ]
+        },
+        "three_artifact": {
+          "k": 0,
+          "n": 0,
+          "rate": null,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "ci95_case": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "tbp": {
+        "k": 0,
+        "n": 168,
+        "rate": 0.0,
+        "ci95": [
+          0.0,
+          0.02235547155054422
+        ],
+        "ci95_case": [
+          0.0,
+          0.0
+        ]
+      },
+      "brittle_fail": {
+        "baseline": {
+          "constraints": {
+            "k": 0,
+            "n": 24,
+            "rate": 0.0,
+            "ci95": [
+              0.0,
+              0.13798057582897535
+            ],
+            "ci95_case": [
+              0.0,
+              0.0
+            ]
+          },
+          "strict": {
+            "k": 0,
+            "n": 24,
+            "rate": 0.0,
+            "ci95": [
+              0.0,
+              0.13798057582897535
+            ],
+            "ci95_case": [
+              0.0,
+              0.0
+            ]
+          },
+          "unordered": {
+            "k": 0,
+            "n": 24,
+            "rate": 0.0,
+            "ci95": [
+              0.0,
+              0.13798057582897535
+            ],
+            "ci95_case": [
+              0.0,
+              0.0
+            ]
+          },
+          "subset": {
+            "k": 0,
+            "n": 24,
+            "rate": 0.0,
+            "ci95": [
+              0.0,
+              0.13798057582897535
+            ],
+            "ci95_case": [
+              0.0,
+              0.0
+            ]
+          },
+          "superset": {
+            "k": 0,
+            "n": 24,
+            "rate": 0.0,
+            "ci95": [
+              0.0,
+              0.13798057582897535
+            ],
+            "ci95_case": [
+              0.0,
+              0.0
+            ]
+          }
+        }
+      }
+    },
+    "injection": {
+      "mutant_survival": {
+        "answer_only": {
+          "k": 0,
+          "n": 0,
+          "rate": null,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "ci95_case": [
+            0.0,
+            0.0
+          ],
+          "excluded_no_baseline": 0,
+          "excluded_baseline_failed": 0
+        },
+        "three_artifact": {
+          "k": 0,
+          "n": 0,
+          "rate": null,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "ci95_case": [
+            0.0,
+            0.0
+          ],
+          "excluded_no_baseline": 0,
+          "excluded_baseline_failed": 0
+        }
+      },
+      "mutant_survival_unconditional": {
+        "answer_only": {
+          "k": 0,
+          "n": 0,
+          "rate": null,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "ci95_case": [
+            0.0,
+            0.0
+          ]
+        },
+        "three_artifact": {
+          "k": 0,
+          "n": 0,
+          "rate": null,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "ci95_case": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "tbp": {
+        "k": 14,
+        "n": 105,
+        "rate": 0.13333333333333333,
+        "ci95": [
+          0.08111317960230989,
+          0.21143672778604156
+        ],
+        "ci95_case": [
+          0.0,
+          0.46153846153846156
+        ]
+      },
+      "brittle_fail": {
+        "baseline": {
+          "constraints": {
+            "k": 0,
+            "n": 13,
+            "rate": 0.0,
+            "ci95": [
+              0.0,
+              0.22810184305529166
+            ],
+            "ci95_case": [
+              0.0,
+              0.0
+            ]
+          },
+          "strict": {
+            "k": 0,
+            "n": 13,
+            "rate": 0.0,
+            "ci95": [
+              0.0,
+              0.22810184305529166
+            ],
+            "ci95_case": [
+              0.0,
+              0.0
+            ]
+          },
+          "unordered": {
+            "k": 0,
+            "n": 13,
+            "rate": 0.0,
+            "ci95": [
+              0.0,
+              0.22810184305529166
+            ],
+            "ci95_case": [
+              0.0,
+              0.0
+            ]
+          },
+          "subset": {
+            "k": 0,
+            "n": 13,
+            "rate": 0.0,
+            "ci95": [
+              0.0,
+              0.22810184305529166
+            ],
+            "ci95_case": [
+              0.0,
+              0.0
+            ]
+          },
+          "superset": {
+            "k": 0,
+            "n": 13,
+            "rate": 0.0,
+            "ci95": [
+              0.0,
+              0.22810184305529166
+            ],
+            "ci95_case": [
+              0.0,
+              0.0
+            ]
+          }
+        }
+      }
+    },
+    "missing_data": {
+      "mutant_survival": {
+        "answer_only": {
+          "k": 0,
+          "n": 0,
+          "rate": null,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "ci95_case": [
+            0.0,
+            0.0
+          ],
+          "excluded_no_baseline": 0,
+          "excluded_baseline_failed": 0
+        },
+        "three_artifact": {
+          "k": 0,
+          "n": 0,
+          "rate": null,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "ci95_case": [
+            0.0,
+            0.0
+          ],
+          "excluded_no_baseline": 0,
+          "excluded_baseline_failed": 0
+        }
+      },
+      "mutant_survival_unconditional": {
+        "answer_only": {
+          "k": 0,
+          "n": 0,
+          "rate": null,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "ci95_case": [
+            0.0,
+            0.0
+          ]
+        },
+        "three_artifact": {
+          "k": 0,
+          "n": 0,
+          "rate": null,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "ci95_case": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "tbp": {
+        "k": 0,
+        "n": 126,
+        "rate": 0.0,
+        "ci95": [
+          0.0,
+          0.029586819632536877
+        ],
+        "ci95_case": [
+          0.0,
+          0.0
+        ]
+      },
+      "brittle_fail": {
+        "baseline": {
+          "constraints": {
+            "k": 0,
+            "n": 18,
+            "rate": 0.0,
+            "ci95": [
+              0.0,
+              0.1758845505823749
+            ],
+            "ci95_case": [
+              0.0,
+              0.0
+            ]
+          },
+          "strict": {
+            "k": 0,
+            "n": 18,
+            "rate": 0.0,
+            "ci95": [
+              0.0,
+              0.1758845505823749
+            ],
+            "ci95_case": [
+              0.0,
+              0.0
+            ]
+          },
+          "unordered": {
+            "k": 0,
+            "n": 18,
+            "rate": 0.0,
+            "ci95": [
+              0.0,
+              0.1758845505823749
+            ],
+            "ci95_case": [
+              0.0,
+              0.0
+            ]
+          },
+          "subset": {
+            "k": 0,
+            "n": 18,
+            "rate": 0.0,
+            "ci95": [
+              0.0,
+              0.1758845505823749
+            ],
+            "ci95_case": [
+              0.0,
+              0.0
+            ]
+          },
+          "superset": {
+            "k": 0,
+            "n": 18,
+            "rate": 0.0,
+            "ci95": [
+              0.0,
+              0.1758845505823749
+            ],
+            "ci95_case": [
+              0.0,
+              0.0
+            ]
+          }
+        }
+      }
+    },
+    "tool_failure": {
+      "mutant_survival": {
+        "answer_only": {
+          "k": 0,
+          "n": 0,
+          "rate": null,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "ci95_case": [
+            0.0,
+            0.0
+          ],
+          "excluded_no_baseline": 0,
+          "excluded_baseline_failed": 0
+        },
+        "three_artifact": {
+          "k": 0,
+          "n": 0,
+          "rate": null,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "ci95_case": [
+            0.0,
+            0.0
+          ],
+          "excluded_no_baseline": 0,
+          "excluded_baseline_failed": 0
+        }
+      },
+      "mutant_survival_unconditional": {
+        "answer_only": {
+          "k": 0,
+          "n": 0,
+          "rate": null,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "ci95_case": [
+            0.0,
+            0.0
+          ]
+        },
+        "three_artifact": {
+          "k": 0,
+          "n": 0,
+          "rate": null,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "ci95_case": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "tbp": {
+        "k": 0,
+        "n": 154,
+        "rate": 0.0,
+        "ci95": [
+          1.734723475976807e-18,
+          0.024338323990633647
+        ],
+        "ci95_case": [
+          0.0,
+          0.0
+        ]
+      },
+      "brittle_fail": {
+        "baseline": {
+          "constraints": {
+            "k": 0,
+            "n": 22,
+            "rate": 0.0,
+            "ci95": [
+              1.3877787807814457e-17,
+              0.14865952572596125
+            ],
+            "ci95_case": [
+              0.0,
+              0.0
+            ]
+          },
+          "strict": {
+            "k": 0,
+            "n": 22,
+            "rate": 0.0,
+            "ci95": [
+              1.3877787807814457e-17,
+              0.14865952572596125
+            ],
+            "ci95_case": [
+              0.0,
+              0.0
+            ]
+          },
+          "unordered": {
+            "k": 0,
+            "n": 22,
+            "rate": 0.0,
+            "ci95": [
+              1.3877787807814457e-17,
+              0.14865952572596125
+            ],
+            "ci95_case": [
+              0.0,
+              0.0
+            ]
+          },
+          "subset": {
+            "k": 0,
+            "n": 22,
+            "rate": 0.0,
+            "ci95": [
+              1.3877787807814457e-17,
+              0.14865952572596125
+            ],
+            "ci95_case": [
+              0.0,
+              0.0
+            ]
+          },
+          "superset": {
+            "k": 0,
+            "n": 22,
+            "rate": 0.0,
+            "ci95": [
+              1.3877787807814457e-17,
+              0.14865952572596125
+            ],
+            "ci95_case": [
+              0.0,
+              0.0
+            ]
+          }
+        }
+      }
+    }
+  },
+  "judge_endorsed_wrong_world": {
+    "k": 14,
+    "n": 1155,
+    "rate": 0.012121212121212121,
+    "ci95": [
+      0.007233860192301186,
+      0.020243234175039444
+    ],
+    "ci95_case": [
+      0.0,
+      0.03636363636363636
+    ]
+  }
+}

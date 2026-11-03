@@ -605,3 +605,16 @@ The full results against each pre-registered expectation are in
   case and M8 as the only possible three-layer survivor. The fire definition ("the fallback
   runs") also fires on N01-N03, and the definitions of M5/M6 fire before a tool error can stop
   the refund.
+
+## Part 1.3: independently authored valid alternates
+
+Measured at commit `08061db` (k=3, 55 cases x 7 variants = 1155 runs, 0 crashed, 0 grading
+errors) in [`results/part-1.3/`](results/part-1.3/), on the same model digests as part-1.2.
+Predictions in [`docs/part-1.3-preregistration.md`](docs/part-1.3-preregistration.md) were
+committed (`017e5df`) before the alternates existed. V1-V6 were designed by a session that never
+saw the cases, constraints, modes, rules or results: V1 retries a failed read, V2 fetches order
+and history together, V3 re-reads history after the write for logging, and V4-V6 are refactors
+with unchanged tool calls. All six pre-registered expectations held; see
+[`docs/part-1.3-results.md`](docs/part-1.3-results.md). Per-case constraints rejected 0 of 840
+valid runs; `any_read` rejected all 58 qualifying V3 runs; `strict`, `unordered` and `subset`
+rejected V1, V2 and V3 on every fired run whose end state and answer passed.
