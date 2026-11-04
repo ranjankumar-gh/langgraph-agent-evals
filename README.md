@@ -252,7 +252,14 @@ Commit `625e3e9` (run tag `part-2-625e3e9`), langgraph 1.2.12, k=3, 55 cases, 16
 A DNS outage during the first pass crashed 43 groups. Those groups were removed and
 re-run at the same commit and run tag; see
 [`results/part-2/CHANGELOG.md`](results/part-2/CHANGELOG.md). Full tables are in
-[`results/part-2/summary.md`](results/part-2/summary.md).
+[`results/part-2/summary.md`](results/part-2/summary.md). The input and output token columns
+there count policy and judge tokens together.
+
+Tag `part-2.1` adds [`results/part-2/upstream_state.md`](results/part-2/upstream_state.md),
+generated offline by `scripts/upstream_state.py` from the record/replay cache (no model calls).
+It shows whether each full rerun reached the fork point in the baseline's state: the classifier
+output differed in 2 of 96 forkable pairs on both the no-op control and D. It also gives the
+Fork Precision Ceiling estimate (0.04% of the three-artifact delta variance, 0.02% of the judge's).
 
 96 of the 165 (case, trial) pairs reach `compute_refund` in the baseline and can be forked.
 The other 69 inherit the baseline's verdict.
