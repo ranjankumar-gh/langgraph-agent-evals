@@ -261,6 +261,13 @@ It shows whether each full rerun reached the fork point in the baseline's state:
 output differed in 2 of 96 forkable pairs on both the no-op control and D. It also gives the
 Fork Precision Ceiling estimate (0.04% of the three-artifact delta variance, 0.02% of the judge's).
 
+Tag `part-2.2` adds [`results/part-2/paired_contrasts.md`](results/part-2/paired_contrasts.md),
+generated offline by `scripts/paired_contrasts.py` (no model calls). It reports the variance
+ratio over all 165 groups as well as the 96 forked pairs, D with the H03/t1 pair excluded (a
+429 timeout that crashed in both D arms), the pair-by-pair contrasts, and the bootstrap-seed
+sweep. Note: summary.md says E's deltas equal D's by construction. They do not quite, because
+H03/t1 crashed on D's arms and not on E's.
+
 96 of the 165 (case, trial) pairs reach `compute_refund` in the baseline and can be forked.
 The other 69 inherit the baseline's verdict.
 
